@@ -1,3 +1,4 @@
+// src/processor.ts
 import { lookupArchive } from "@subsquid/archive-registry";
 import { Store, TypeormDatabase } from "@subsquid/typeorm-store";
 import {
@@ -10,22 +11,30 @@ import {
 import { In } from "typeorm";
 import {
   CHAIN_NODE,
-  contract,
   getContractEntity,
   getTokenURI,
+  contractMapping,
 } from "./contract";
+import { astarCatsContract } from "./helper/AstarCats";
+import { astarDegenscontract } from "./helper/AstarDegens";
 import { Owner, Token, Transfer } from "./model";
 import * as erc721 from "./abi/erc721";
 
 const database = new TypeormDatabase();
 const processor = new SubstrateBatchProcessor()
   .setBatchSize(500)
+  .setBlockRange({ from: 442693 })
   .setDataSource({
     chain: CHAIN_NODE,
-    archive: lookupArchive("moonriver", { release: "FireSquid" }),
+    archive: lookupArchive("astar", { release: "FireSquid" }),
   })
-  .setTypesBundle("moonbeam")
-  .addEvmLog(contract.address, {
+  .setTypesBundle("astar")
+  .addEvmLog(astarDegenscontract.address, {
+    range: { from: 442693 },
+    filter: [erc721.events["Transfer(address,address,uint256)"].topic],
+  })
+  .addEvmLog(astarCatsContract.address, {
+    range: { from: 800854 },
     filter: [erc721.events["Transfer(address,address,uint256)"].topic],
   });
 
@@ -38,7 +47,7 @@ processor.run(database, async (ctx) => {
   for (const block of ctx.blocks) {
     for (const item of block.items) {
       if (item.name === "EVM.Log") {
-        const transfer = handleTransfer(ctx, block.header, item.event);
+        const transfer = handleTransfer(block.header, item.event);
         transfersData.push(transfer);
       }
     }
@@ -55,16 +64,18 @@ type TransferData = {
   timestamp: bigint;
   block: number;
   transactionHash: string;
+  contractAddress: string;
 };
 
 function handleTransfer(
-  ctx: Context,
   block: SubstrateBlock,
   event: EvmLogEvent
 ): TransferData {
   const { from, to, tokenId } = erc721.events[
     "Transfer(address,address,uint256)"
   ].decode(event.args);
+
+  // console.log("==========EVENT TRANSFER FIRED=============");
 
   const transfer: TransferData = {
     id: event.id,
@@ -74,12 +85,16 @@ function handleTransfer(
     timestamp: BigInt(block.timestamp),
     block: block.height,
     transactionHash: event.evmTxHash,
+    contractAddress: event.args.address,
   };
-
+  // console.log(`${from}-${to}-${tokenId}-${event.args.address}`);
+  // console.log("==========END==============END=============");
   return transfer;
 }
 
 async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
+  console.log("===================BEGIN SAVETRANSFER================");
+  console.log("Transfer Data Length : ", transfersData.length);
   const tokensIds: Set<string> = new Set();
   const ownersIds: Set<string> = new Set();
 
@@ -88,6 +103,8 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
     ownersIds.add(transferData.from);
     ownersIds.add(transferData.to);
   }
+
+  console.log("Done Adding Set for initial tokenIds and ownerIds ");
 
   const transfers: Set<Transfer> = new Set();
 
@@ -105,6 +122,8 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
     ])
   );
 
+  console.log("Done setting map for token and owners");
+
   for (const transferData of transfersData) {
     let from = owners.get(transferData.from);
     if (from == null) {
@@ -118,12 +137,34 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
       owners.set(to.id, to);
     }
 
-    let token = tokens.get(transferData.token);
+    let token = tokens.get(
+      `${
+        contractMapping.get(transferData.contractAddress)?.contractModel
+          .symbol || ""
+      }-${transferData.token}`
+    );
+    console.log("Sebelum masuk token null");
     if (token == null) {
+      console.log(
+        "Mau test getTokenURI, kalau ke print pass berarti ga masalah"
+      );
+      const uri = await getTokenURI(
+        transferData.token,
+        transferData.contractAddress
+      );
+      console.log(uri);
+
+      console.log("PASS contract ", transferData.contractAddress);
       token = new Token({
-        id: transferData.token,
-        uri: await getTokenURI(transferData.token),
-        contract: await getContractEntity(ctx.store),
+        id: `${
+          contractMapping.get(transferData.contractAddress)?.contractModel
+            .symbol || ""
+        }-${transferData.token}`,
+        uri,
+        contract: await getContractEntity(
+          ctx.store,
+          transferData.contractAddress
+        ),
       });
       tokens.set(token.id, token);
     }
@@ -144,7 +185,13 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
     transfers.add(transfer);
   }
 
+  console.log("Done saving transfer data");
+
   await ctx.store.save([...owners.values()]);
   await ctx.store.save([...tokens.values()]);
   await ctx.store.save([...transfers]);
+
+  console.log("Done saving to graphql database");
+
+  console.log("===================END SAVETRANSFER================");
 }
