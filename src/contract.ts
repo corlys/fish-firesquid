@@ -5,6 +5,8 @@ import WebsocketProvider from "web3-providers-ws";
 import * as erc721 from "./abi/erc721";
 import { astarCatsContract } from "./helper/AstarCats";
 import { astarDegenscontract } from "./helper/AstarDegens";
+import { fishContract } from "./helper/Fish";
+import { fishMarketplaceContract } from "./helper/FishMarketplace";
 import { Contract } from "./model";
 
 // export const CHAIN_NODE = "wss://astar.public.blastapi.io";
@@ -23,27 +25,49 @@ export const contractMapping: Map<string, ContractInfo> = new Map<
   ContractInfo
 >();
 
-contractMapping.set(astarDegenscontract.address, {
-  ethersContract: astarDegenscontract,
+contractMapping.set(fishContract.address, {
+  ethersContract: fishContract,
   contractModel: {
-    id: astarDegenscontract.address,
-    name: "AstarDegens",
-    symbol: "DEGEN",
-    totalSupply: 10000n,
+    id: fishContract.address,
+    name: "Fish",
+    symbol: "FISH",
+    totalSupply: null,
     mintedTokens: [],
   },
 });
 
-contractMapping.set(astarCatsContract.address, {
-  ethersContract: astarCatsContract,
+contractMapping.set(fishMarketplaceContract.address, {
+  ethersContract: fishMarketplaceContract,
   contractModel: {
-    id: astarCatsContract.address,
-    name: "AstarCats",
-    symbol: "CAT",
-    totalSupply: 7777n,
+    id: fishMarketplaceContract.address,
+    name: "Fishy Marketplace",
+    symbol: null,
+    totalSupply: null,
     mintedTokens: [],
   },
 });
+
+// contractMapping.set(astarDegenscontract.address, {
+//   ethersContract: astarDegenscontract,
+//   contractModel: {
+//     id: astarDegenscontract.address,
+//     name: "AstarDegens",
+//     symbol: "DEGEN",
+//     totalSupply: 10000n,
+//     mintedTokens: [],
+//   },
+// });
+
+// contractMapping.set(astarCatsContract.address, {
+//   ethersContract: astarCatsContract,
+//   contractModel: {
+//     id: astarCatsContract.address,
+//     name: "AstarCats",
+//     symbol: "CAT",
+//     totalSupply: 7777n,
+//     mintedTokens: [],
+//   },
+// });
 
 export function createContractEntity(address: string): Contract {
   return new Contract(contractMapping.get(address)?.contractModel);

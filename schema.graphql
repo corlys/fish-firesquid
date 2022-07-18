@@ -3,6 +3,7 @@ type Token @entity {
   owner: Owner
   uri: String
   transfers: [Transfer!]! @derivedFrom(field: "token")
+  activities: [Activity!]! @derivedFrom(field: "token")
   contract: Contract
 }
 
@@ -28,4 +29,23 @@ type Transfer @entity {
   timestamp: BigInt!
   block: Int!
   transactionHash: String!
+}
+
+type Activity @entity {
+  id: ID!
+  token: Token!
+  from: Owner
+  to: Owner
+  price: BigInt
+  type: ActivityType!
+  timestamp: BigInt!
+  block: Int!
+  transactionHash: String!
+}
+
+enum ActivityType {
+  MINT
+  TRANSFER
+  LISTING
+  SOLD
 }
