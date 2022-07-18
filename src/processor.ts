@@ -59,9 +59,13 @@ processor.run(database, async (ctx) => {
   for (const block of ctx.blocks) {
     for (const item of block.items) {
       if (item.name === "EVM.Log") {
-        console.log(`=======================${item.event.args.address}=========================`)
+        console.log(
+          `=======================${item.event.args.address}=========================`
+        );
         if (item.event.args.address === fishMarketplaceContract.address) {
-          console.log("=========ADA EVENT DARI MARKETPLACE================")
+          console.log(
+            "==============THERE IS AN EVENT FROM THE MARKETPLACE================"
+          );
           const { buyer } = fishMarketplace.events[
             "BuyEvent(address,address,uint256,uint256,uint256,address)"
           ].decode(item.event.args);
@@ -75,7 +79,12 @@ processor.run(database, async (ctx) => {
             const sell = handleSell(block.header, item.event);
             sellsData.push(sell);
           }
-        } else {
+        }
+
+        if (item.event.args.address === fishContract.address) {
+          console.log(
+            "==============THERE IS AN EVENT FROM THE NFT FISH================"
+          );
           const transfer = handleTransfer(block.header, item.event);
           transfersData.push(transfer);
         }
