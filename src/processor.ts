@@ -40,11 +40,13 @@ const processor = new SubstrateBatchProcessor()
   .addEvmLog(fishMarketplaceContract.address, {
     range: { from: 1459307 },
     filter: [
-      fishMarketplace.events["SellEvent(address,uint256,uint256,address)"]
-        .topic,
-      fishMarketplace.events[
-        "BuyEvent(address,address,uint256,uint256,uint256,address)"
-      ].topic,
+      [
+        fishMarketplace.events["SellEvent(address,uint256,uint256,address)"]
+          .topic,
+        fishMarketplace.events[
+          "BuyEvent(address,address,uint256,uint256,uint256,address)"
+        ].topic,
+      ],
     ],
   });
 
@@ -66,18 +68,22 @@ processor.run(database, async (ctx) => {
           console.log(
             "==============THERE IS AN EVENT FROM THE MARKETPLACE================"
           );
-          const { buyer } = fishMarketplace.events[
-            "BuyEvent(address,address,uint256,uint256,uint256,address)"
-          ].decode(item.event.args);
-          const { seller } = fishMarketplace.events[
-            "SellEvent(address,uint256,uint256,address)"
-          ].decode(item.event.args);
-          if (ethers.utils.isAddress(buyer)) {
-            const buy = handleBuy(block.header, item.event);
-            buysData.push(buy);
-          } else if (ethers.utils.isAddress(seller)) {
+          const topics = item.event.args.topics;
+          if (
+            topics[0] ===
+            fishMarketplace.events["SellEvent(address,uint256,uint256,address)"]
+              .topic
+          ) {
             const sell = handleSell(block.header, item.event);
             sellsData.push(sell);
+          } else if (
+            topics[0] ===
+            fishMarketplace.events[
+              "BuyEvent(address,address,uint256,uint256,uint256,address)"
+            ].topic
+          ) {
+            const buy = handleBuy(block.header, item.event);
+            buysData.push(buy);
           }
         }
 
@@ -168,7 +174,7 @@ function handleSell(block: SubstrateBlock, event: EvmLogEvent): SellData {
     tokenId: tokenId.toString(),
     from: seller,
     price: price.toBigInt(),
-    nftContractAddress: NFTAddress,
+    nftContractAddress: NFTAddress.toLowerCase(),
     timestamp: BigInt(block.timestamp),
     block: block.height,
     transactionHash: event.evmTxHash,
@@ -190,7 +196,7 @@ function handleBuy(block: SubstrateBlock, event: EvmLogEvent): BuyData {
     from: seller,
     to: buyer,
     buyTime: buyTime.toBigInt(),
-    nftContractAddress: NFTAddress,
+    nftContractAddress: NFTAddress.toLowerCase(),
     price: price.toBigInt(),
     timestamp: BigInt(block.timestamp),
     block: block.height,
@@ -208,7 +214,12 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
   const ownersIds: Set<string> = new Set();
 
   for (const transferData of transfersData) {
-    tokensIds.add(transferData.token);
+    tokensIds.add(
+      `${
+        contractMapping.get(transferData.contractAddress)?.contractModel
+          .symbol || ""
+      }-${transferData.token}`
+    );
     ownersIds.add(transferData.from);
     ownersIds.add(transferData.to);
   }
@@ -319,6 +330,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
   await ctx.store.save([...owners.values()]);
   await ctx.store.save([...tokens.values()]);
   await ctx.store.save([...transfers]);
+  await ctx.store.save([...activities]);
 
   console.log("===================END SAVETRANSFER================");
 }
@@ -330,7 +342,12 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
   const ownersIds: Set<string> = new Set();
 
   for (const sellData of sellsData) {
-    tokensIds.add(sellData.tokenId);
+    tokensIds.add(
+      `${
+        contractMapping.get(sellData.nftContractAddress)?.contractModel
+          .symbol || ""
+      }-${sellData.tokenId}`
+    );
     ownersIds.add(sellData.from);
     // ownersIds.add(sellData.to);
   }
@@ -364,6 +381,8 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
           .symbol || ""
       }-${sellData.tokenId}`
     );
+
+    console.log("fetch Token from sell ", token);
 
     if (token == null) {
       const uri = await getTokenURI(
@@ -456,7 +475,12 @@ async function saveBuy(ctx: Context, buysData: BuyData[]) {
   const ownersIds: Set<string> = new Set();
 
   for (const buyData of buysData) {
-    tokensIds.add(buyData.tokenId);
+    tokensIds.add(
+      `${
+        contractMapping.get(buyData.nftContractAddress)?.contractModel.symbol ||
+        ""
+      }-${buyData.tokenId}`
+    );
     ownersIds.add(buyData.from);
     ownersIds.add(buyData.to);
   }
