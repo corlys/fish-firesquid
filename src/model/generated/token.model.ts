@@ -29,4 +29,7 @@ export class Token {
   @Index_()
   @ManyToOne_(() => Contract, {nullable: true})
   contract!: Contract | undefined | null
+
+  @Column_("text", {nullable: true})
+  imageUri!: string | undefined | null
 }

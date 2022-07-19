@@ -9,7 +9,7 @@ import {
   SubstrateBlock,
 } from "@subsquid/substrate-processor";
 import { In } from "typeorm";
-import { ethers } from "ethers";
+import axios from "axios";
 import {
   CHAIN_NODE,
   getContractEntity,
@@ -139,6 +139,12 @@ type BuyData = {
   contractAddress: string;
 };
 
+interface ITokenURI {
+  image: string;
+  description: string;
+  name: string;
+}
+
 function handleTransfer(
   block: SubstrateBlock,
   event: EvmLogEvent
@@ -265,7 +271,19 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
         transferData.token,
         transferData.contractAddress
       );
-
+      let imageUri: string;
+      if (uri.includes("ipfs://")) {
+        try {
+          const get = await axios.get<ITokenURI>(
+            uri.replace("ipfs://", "https://nftstorage.link/ipfs/")
+          );
+          imageUri = get.data.image;
+        } catch (error) {
+          imageUri = "";
+        }
+      } else {
+        imageUri = "";
+      }
       token = new Token({
         id: `${
           contractMapping.get(transferData.contractAddress)?.contractModel
@@ -276,6 +294,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           ctx.store,
           transferData.contractAddress
         ),
+        imageUri,
       });
       tokens.set(token.id, token);
 
@@ -382,13 +401,24 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
       }-${sellData.tokenId}`
     );
 
-    console.log("fetch Token from sell ", token);
-
     if (token == null) {
       const uri = await getTokenURI(
         sellData.tokenId,
         sellData.nftContractAddress
       );
+      let imageUri: string;
+      if (uri.includes("ipfs://")) {
+        try {
+          const get = await axios.get<ITokenURI>(
+            uri.replace("ipfs://", "https://nftstorage.link/ipfs/")
+          );
+          imageUri = get.data.image;
+        } catch (error) {
+          imageUri = "";
+        }
+      } else {
+        imageUri = "";
+      }
       token = new Token({
         id: `${
           contractMapping.get(sellData.nftContractAddress)?.contractModel
@@ -399,6 +429,7 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
           ctx.store,
           sellData.nftContractAddress
         ),
+        imageUri,
       });
       tokens.set(token.id, token);
 
