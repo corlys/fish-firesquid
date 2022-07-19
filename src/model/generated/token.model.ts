@@ -32,4 +32,7 @@ export class Token {
 
   @Column_("text", {nullable: true})
   imageUri!: string | undefined | null
+
+  @Column_("int4", {nullable: false})
+  tokenId!: number
 }

@@ -295,6 +295,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           transferData.contractAddress
         ),
         imageUri,
+        tokenId: parseInt(transferData.token)
       });
       tokens.set(token.id, token);
 
@@ -430,6 +431,7 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
           sellData.nftContractAddress
         ),
         imageUri,
+        tokenId: parseInt(sellData.tokenId),
       });
       tokens.set(token.id, token);
 

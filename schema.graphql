@@ -6,6 +6,7 @@ type Token @entity {
   activities: [Activity!]! @derivedFrom(field: "token")
   contract: Contract
   imageUri: String
+  tokenId: Int!
 }
 
 type Owner @entity {
