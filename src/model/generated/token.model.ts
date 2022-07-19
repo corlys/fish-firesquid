@@ -35,4 +35,7 @@ export class Token {
 
   @Column_("int4", {nullable: false})
   tokenId!: number
+
+  @Column_("bool", {nullable: true})
+  isListed!: boolean | undefined | null
 }

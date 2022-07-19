@@ -295,7 +295,8 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           transferData.contractAddress
         ),
         imageUri,
-        tokenId: parseInt(transferData.token)
+        tokenId: parseInt(transferData.token),
+        isListed: false,
       });
       tokens.set(token.id, token);
 
@@ -329,6 +330,8 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
         });
         activities.add(mintActivity);
       }
+    } else {
+      token.isListed = false;
     }
     token.owner = to;
 
@@ -432,6 +435,7 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
         ),
         imageUri,
         tokenId: parseInt(sellData.tokenId),
+        isListed: true,
       });
       tokens.set(token.id, token);
 
@@ -465,6 +469,8 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
         });
         activities.add(mintActivity);
       }
+    } else {
+      token.isListed = true;
     }
     token.owner = from;
 
@@ -557,6 +563,7 @@ async function saveBuy(ctx: Context, buysData: BuyData[]) {
     if (token != null) {
       // In Buy Event token must already exist
       token.owner = from;
+      token.isListed = false;
     }
 
     const {

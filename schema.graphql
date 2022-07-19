@@ -7,6 +7,7 @@ type Token @entity {
   contract: Contract
   imageUri: String
   tokenId: Int!
+  isListed: Boolean
 }
 
 type Owner @entity {

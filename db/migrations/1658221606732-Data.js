@@ -1,5 +1,5 @@
-module.exports = class Data1658221210483 {
-  name = 'Data1658221210483'
+module.exports = class Data1658221606732 {
+  name = 'Data1658221606732'
 
   async up(db) {
     await db.query(`CREATE TABLE "owner" ("id" character varying NOT NULL, "balance" numeric, CONSTRAINT "PK_8e86b6b9f94aece7d12d465dc0c" PRIMARY KEY ("id"))`)
@@ -12,7 +12,7 @@ module.exports = class Data1658221210483 {
     await db.query(`CREATE INDEX "IDX_7a99e99792a8f1861deaae4396" ON "activity" ("from_id") `)
     await db.query(`CREATE INDEX "IDX_7b259626830714f1c73b6c42b6" ON "activity" ("to_id") `)
     await db.query(`CREATE TABLE "contract" ("id" character varying NOT NULL, "name" text, "symbol" text, "total_supply" numeric, CONSTRAINT "PK_17c3a89f58a2997276084e706e8" PRIMARY KEY ("id"))`)
-    await db.query(`CREATE TABLE "token" ("id" character varying NOT NULL, "uri" text, "image_uri" text, "token_id" integer NOT NULL, "owner_id" character varying, "contract_id" character varying, CONSTRAINT "PK_82fae97f905930df5d62a702fc9" PRIMARY KEY ("id"))`)
+    await db.query(`CREATE TABLE "token" ("id" character varying NOT NULL, "uri" text, "image_uri" text, "token_id" integer NOT NULL, "is_listed" boolean, "owner_id" character varying, "contract_id" character varying, CONSTRAINT "PK_82fae97f905930df5d62a702fc9" PRIMARY KEY ("id"))`)
     await db.query(`CREATE INDEX "IDX_77fa31a311c711698a0b944382" ON "token" ("owner_id") `)
     await db.query(`CREATE INDEX "IDX_5c85dbbd108d915a13f71de39a" ON "token" ("contract_id") `)
     await db.query(`ALTER TABLE "transfer" ADD CONSTRAINT "FK_b27b1150b8a7af68424540613c7" FOREIGN KEY ("token_id") REFERENCES "token"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
