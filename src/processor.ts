@@ -105,8 +105,8 @@ processor.run(database, async (ctx) => {
       }
     }
   }
-  await saveSell(ctx, sellsData);
   await saveTransfers(ctx, transfersData);
+  await saveSell(ctx, sellsData);
   await saveBuy(ctx, buysData);
 });
 
