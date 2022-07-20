@@ -101,10 +101,32 @@ processor.run(database, async (ctx) => {
           );
           const transfer = handleTransfer(block.header, item.event);
           transfersData.push(transfer);
+
+          if (sellsData.length !== 0) {
+            // kalau ada transfer, sell event nya di handle dulu
+            await saveSell(ctx, sellsData);
+            while (sellsData.length !== 0) {
+              sellsData.pop();
+            }
+          }
+
+          if (buysData.length !== 0) {
+            // kalau ada transfer, buy event nya di itu muncul duluan jadi di handle duluan,
+            // transferEvent nya itu lebih duluan daripada buyEvent. Jadi ada dua kemungkinan
+            // transfer nya buy dihandle ketika event marketplace buy ketangkep. abis itu
+            // buy event nya di handle ketika ada transfer yang berikutnya atau ketika udah
+            // last round save
+            await saveBuy(ctx, buysData);
+            while (buysData.length !== 0) {
+              buysData.pop();
+            }
+          }
         }
       }
     }
   }
+
+  // last round save
   await saveTransfers(ctx, transfersData);
   await saveSell(ctx, sellsData);
   await saveBuy(ctx, buysData);
