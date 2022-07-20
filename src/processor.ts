@@ -248,6 +248,8 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
   );
 
   for (const transferData of transfersData) {
+    let activityEntity: Activity | null | undefined = null;
+
     let from = owners.get(transferData.from);
     if (from == null) {
       from = new Owner({ id: transferData.from, balance: 0n });
@@ -266,6 +268,14 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           .symbol || ""
       }-${transferData.token}`
     );
+
+    console.log(
+      `Token With the id of ${
+        contractMapping.get(transferData.contractAddress)?.contractModel
+          .symbol || ""
+      }-${transferData.token} does ${token ? "exist" : "not exist"}`
+    );
+
     if (token == null) {
       const uri = await getTokenURI(
         transferData.token,
@@ -300,7 +310,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
       });
       tokens.set(token.id, token);
 
-      let mintActivity = await ctx.store.get(
+      activityEntity = await ctx.store.get(
         Activity,
         transferData.contractAddress +
           "-" +
@@ -311,8 +321,9 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           ActivityType.MINT
       );
 
-      if (mintActivity == null) {
-        mintActivity = new Activity({
+      console.log("Making minting activity");
+      if (activityEntity == null) {
+        activityEntity = new Activity({
           id:
             transferData.contractAddress +
             "-" +
@@ -328,7 +339,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           token,
           transactionHash: transferData.transactionHash,
         });
-        activities.add(mintActivity);
+        activities.add(activityEntity);
       }
     } else {
       token.isListed = false;
@@ -348,6 +359,41 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
     });
 
     transfers.add(transfer);
+    console.log(
+      `Hey Token ${transferData.token} ini activity sebelum buat transfer ${activityEntity?.type}`
+    );
+    if (activityEntity == null) {
+      activityEntity = await ctx.store.get(
+        Activity,
+        transferData.contractAddress +
+          "-" +
+          transferData.transactionHash +
+          "-" +
+          transferData.token +
+          "-" +
+          ActivityType.TRANSFER
+      );
+
+      if (activityEntity == null) {
+        activityEntity = new Activity({
+          id:
+            transferData.contractAddress +
+            "-" +
+            transferData.transactionHash +
+            "-" +
+            transferData.token +
+            "-" +
+            ActivityType.TRANSFER,
+          type: ActivityType.TRANSFER,
+          block: transferData.block,
+          from,
+          timestamp: transferData.timestamp,
+          token,
+          transactionHash: transferData.transactionHash,
+        });
+        activities.add(activityEntity);
+      }
+    }
   }
 
   await ctx.store.save([...owners.values()]);
