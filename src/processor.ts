@@ -85,6 +85,14 @@ processor.run(database, async (ctx) => {
             const buy = handleBuy(block.header, item.event);
             buysData.push(buy);
           }
+
+          if (transfersData.length !== 0) {
+            // kalau ada transfer yang udah masuk, urus dulu transfer nya
+            await saveTransfers(ctx, transfersData);
+            while (transfersData.length !== 0) {
+              transfersData.pop();
+            }
+          }
         }
 
         if (item.event.args.address === fishContract.address) {
@@ -97,8 +105,8 @@ processor.run(database, async (ctx) => {
       }
     }
   }
-  await saveTransfers(ctx, transfersData);
   await saveSell(ctx, sellsData);
+  await saveTransfers(ctx, transfersData);
   await saveBuy(ctx, buysData);
 });
 
@@ -306,7 +314,6 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
         ),
         imageUri,
         tokenId: parseInt(transferData.token),
-        isListed: false,
       });
       tokens.set(token.id, token);
 
@@ -320,8 +327,6 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           "-" +
           ActivityType.MINT
       );
-
-      console.log("Making minting activity");
       if (activityEntity == null) {
         activityEntity = new Activity({
           id:
@@ -335,15 +340,15 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           type: ActivityType.MINT,
           block: transferData.block,
           from,
+          to,
           timestamp: transferData.timestamp,
           token,
           transactionHash: transferData.transactionHash,
         });
         activities.add(activityEntity);
       }
-    } else {
-      token.isListed = false;
     }
+    token.isListed = false;
     token.owner = to;
 
     const { id, block, transactionHash, timestamp } = transferData;
@@ -359,9 +364,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
     });
 
     transfers.add(transfer);
-    console.log(
-      `Hey Token ${transferData.token} ini activity sebelum buat transfer ${activityEntity?.type}`
-    );
+
     if (activityEntity == null) {
       activityEntity = await ctx.store.get(
         Activity,
@@ -387,6 +390,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           type: ActivityType.TRANSFER,
           block: transferData.block,
           from,
+          to,
           timestamp: transferData.timestamp,
           token,
           transactionHash: transferData.transactionHash,
@@ -395,6 +399,8 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
       }
     }
   }
+
+  // console.log([...tokens.values()]);
 
   await ctx.store.save([...owners.values()]);
   await ctx.store.save([...tokens.values()]);
@@ -405,8 +411,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
 }
 
 async function saveSell(ctx: Context, sellsData: SellData[]) {
-  console.log(sellsData);
-
+  console.log("===================BEGIN SAVESELL================");
   const tokensIds: Set<string> = new Set();
   const ownersIds: Set<string> = new Set();
 
@@ -481,7 +486,6 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
         ),
         imageUri,
         tokenId: parseInt(sellData.tokenId),
-        isListed: true,
       });
       tokens.set(token.id, token);
 
@@ -515,10 +519,9 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
         });
         activities.add(mintActivity);
       }
-    } else {
-      token.isListed = true;
     }
     token.owner = from;
+    token.isListed = true;
 
     const {
       block,
@@ -550,12 +553,17 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
     activities.add(sellActivity);
   }
 
+  console.log("Sell Tokens", [...tokens.values()]);
+
   await ctx.store.save([...owners.values()]);
   await ctx.store.save([...tokens.values()]);
   await ctx.store.save([...activities]);
+
+  console.log("===================END SAVESELLL================");
 }
 
 async function saveBuy(ctx: Context, buysData: BuyData[]) {
+  console.log("===================BEGIN SAVEBUY================");
   const tokensIds: Set<string> = new Set();
   const ownersIds: Set<string> = new Set();
 
@@ -607,8 +615,7 @@ async function saveBuy(ctx: Context, buysData: BuyData[]) {
     );
 
     if (token != null) {
-      // In Buy Event token must already exist
-      token.owner = from;
+      token.owner = to;
       token.isListed = false;
     }
 
@@ -643,7 +650,11 @@ async function saveBuy(ctx: Context, buysData: BuyData[]) {
     activities.add(buyActivity);
   }
 
+  console.log("Buy Tokens", [...tokens.values()]);
+
   await ctx.store.save([...owners.values()]);
   await ctx.store.save([...tokens.values()]);
   await ctx.store.save([...activities]);
+
+  console.log("===================END SAVEBUY================");
 }
