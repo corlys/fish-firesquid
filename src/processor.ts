@@ -27,18 +27,18 @@ import * as fishMarketplace from "./abi/fishMarketplace";
 const database = new TypeormDatabase();
 const processor = new SubstrateBatchProcessor()
   .setBatchSize(500)
-  .setBlockRange({ from: 1459305 })
+  .setBlockRange({ from: 1477747 })
   .setDataSource({
     chain: CHAIN_NODE,
     archive: lookupArchive("astar", { release: "FireSquid" }),
   })
   .setTypesBundle("astar")
   .addEvmLog(fishContract.address, {
-    range: { from: 1459305 },
+    range: { from: 1477747 },
     filter: [erc721.events["Transfer(address,address,uint256)"].topic],
   })
   .addEvmLog(fishMarketplaceContract.address, {
-    range: { from: 1459307 },
+    range: { from: 1477749 },
     filter: [
       [
         fishMarketplace.events["SellEvent(address,uint256,uint256,address)"]

@@ -25,7 +25,7 @@ const w3s = new WebsocketProvider(CHAIN_NODE, {
 let w3sProvider = new ethers.providers.Web3Provider(w3s);
 
 export const fishMarketplaceContract = new ethers.Contract(
-  "0x987b6eD76fb3E1d9Bc06937F99cC21A7A449a276".toLowerCase(),
+  "0x5361ea4aC16458d83579e197DE1649e31f8529eD".toLowerCase(),
   fishMarketplace.abi,
   w3sProvider
 );
