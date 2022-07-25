@@ -16,8 +16,6 @@ import {
   getTokenURI,
   contractMapping,
 } from "./contract";
-import { astarCatsContract } from "./helper/AstarCats";
-import { astarDegenscontract } from "./helper/AstarDegens";
 import { fishContract } from "./helper/Fish";
 import { fishMarketplaceContract } from "./helper/FishMarketplace";
 import { Owner, Token, Transfer, Activity, ActivityType } from "./model";
@@ -183,8 +181,6 @@ function handleTransfer(
     "Transfer(address,address,uint256)"
   ].decode(event.args);
 
-  // console.log("==========EVENT TRANSFER FIRED=============");
-
   const transfer: TransferData = {
     id: event.id,
     token: tokenId.toString(),
@@ -195,8 +191,6 @@ function handleTransfer(
     transactionHash: event.evmTxHash,
     contractAddress: event.args.address,
   };
-  // console.log(`${from}-${to}-${tokenId}-${event.args.address}`);
-  // console.log("==========END==============END=============");
   return transfer;
 }
 
