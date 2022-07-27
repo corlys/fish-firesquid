@@ -18,6 +18,7 @@ import {
 } from "./contract";
 import { fishContract } from "./helper/Fish";
 import { fishMarketplaceContract } from "./helper/FishMarketplace";
+import { ticketPassAContract } from "./helper/TicketPassA";
 import { Owner, Token, Transfer, Activity, ActivityType } from "./model";
 import * as erc721 from "./abi/erc721";
 import * as fishMarketplace from "./abi/fishMarketplace";
@@ -25,28 +26,28 @@ import * as fishMarketplace from "./abi/fishMarketplace";
 const database = new TypeormDatabase();
 const processor = new SubstrateBatchProcessor()
   .setBatchSize(500)
-  .setBlockRange({ from: 1477747 })
+  .setBlockRange({ from: 1517540 })
   .setDataSource({
     chain: CHAIN_NODE,
     archive: lookupArchive("astar", { release: "FireSquid" }),
   })
   .setTypesBundle("astar")
-  .addEvmLog(fishContract.address, {
-    range: { from: 1477747 },
+  .addEvmLog(ticketPassAContract.address, {
+    range: { from: 1517540 },
     filter: [erc721.events["Transfer(address,address,uint256)"].topic],
-  })
-  .addEvmLog(fishMarketplaceContract.address, {
-    range: { from: 1477749 },
-    filter: [
-      [
-        fishMarketplace.events["SellEvent(address,uint256,uint256,address)"]
-          .topic,
-        fishMarketplace.events[
-          "BuyEvent(address,address,uint256,uint256,uint256,address)"
-        ].topic,
-      ],
-    ],
   });
+// .addEvmLog(fishMarketplaceContract.address, {
+//   range: { from: 1477749 },
+//   filter: [
+//     [
+//       fishMarketplace.events["SellEvent(address,uint256,uint256,address)"]
+//         .topic,
+//       fishMarketplace.events[
+//         "BuyEvent(address,address,uint256,uint256,uint256,address)"
+//       ].topic,
+//     ],
+//   ],
+// });
 
 type Item = BatchProcessorItem<typeof processor>;
 type Context = BatchContext<Store, Item>;
@@ -94,6 +95,34 @@ processor.run(database, async (ctx) => {
         }
 
         if (item.event.args.address === fishContract.address) {
+          console.log(
+            "==============THERE IS AN EVENT FROM THE NFT FISH================"
+          );
+          const transfer = handleTransfer(block.header, item.event);
+          transfersData.push(transfer);
+
+          if (sellsData.length !== 0) {
+            // kalau ada transfer, sell event nya di handle dulu
+            await saveSell(ctx, sellsData);
+            while (sellsData.length !== 0) {
+              sellsData.pop();
+            }
+          }
+
+          if (buysData.length !== 0) {
+            // kalau ada transfer, buy event nya di itu muncul duluan jadi di handle duluan,
+            // transferEvent nya itu lebih duluan daripada buyEvent. Jadi ada dua kemungkinan
+            // transfer nya buy dihandle ketika event marketplace buy ketangkep. abis itu
+            // buy event nya di handle ketika ada transfer yang berikutnya atau ketika udah
+            // last round save
+            await saveBuy(ctx, buysData);
+            while (buysData.length !== 0) {
+              buysData.pop();
+            }
+          }
+        }
+
+        if (item.event.args.address === ticketPassAContract.address) {
           console.log(
             "==============THERE IS AN EVENT FROM THE NFT FISH================"
           );
