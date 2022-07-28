@@ -237,6 +237,12 @@ function handleBuy(block: SubstrateBlock, event: EvmLogEvent): BuyData {
   return buy;
 }
 
+const collectionTokenId = (address: string, tokenId: string) => {
+  return `${
+    contractMapping.get(address)?.contractModel.symbol || ""
+  }-${tokenId}`;
+};
+
 async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
   console.log("===================BEGIN SAVETRANSFER================");
   console.log("Transfer Data Length : ", transfersData.length);
@@ -245,10 +251,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
 
   for (const transferData of transfersData) {
     tokensIds.add(
-      `${
-        contractMapping.get(transferData.contractAddress)?.contractModel
-          .symbol || ""
-      }-${transferData.token}`
+      collectionTokenId(transferData.contractAddress, transferData.token)
     );
     ownersIds.add(transferData.from);
     ownersIds.add(transferData.to);
@@ -287,17 +290,14 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
     }
 
     let token = tokens.get(
-      `${
-        contractMapping.get(transferData.contractAddress)?.contractModel
-          .symbol || ""
-      }-${transferData.token}`
+      collectionTokenId(transferData.contractAddress, transferData.token)
     );
 
     console.log(
-      `Token With the id of ${
-        contractMapping.get(transferData.contractAddress)?.contractModel
-          .symbol || ""
-      }-${transferData.token} does ${token ? "exist" : "not exist"}`
+      `Token With the id of ${collectionTokenId(
+        transferData.contractAddress,
+        transferData.token
+      )} does ${token ? "exist" : "not exist"}`
     );
 
     if (token == null) {
@@ -305,24 +305,33 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
         transferData.token,
         transferData.contractAddress
       );
+      console.log(
+        `uri of token ${collectionTokenId(
+          transferData.contractAddress,
+          transferData.token
+        )} : ${uri}`
+      );
       let imageUri: string;
       if (uri.includes("ipfs://")) {
+        console.log(`Fetching image metadata from ${uri}`);
         try {
           const get = await axios.get<ITokenURI>(
             uri.replace("ipfs://", "https://nftstorage.link/ipfs/")
           );
+          console.log(`metadata of image is ${get.data.image}`);
           imageUri = get.data.image;
         } catch (error) {
+          console.log(`image metadata is empty`)
           imageUri = "";
         }
       } else {
         imageUri = "";
       }
       token = new Token({
-        id: `${
-          contractMapping.get(transferData.contractAddress)?.contractModel
-            .symbol || ""
-        }-${transferData.token}`,
+        id: `${collectionTokenId(
+          transferData.contractAddress,
+          transferData.token
+        )}`,
         uri,
         contract: await getContractEntity(
           ctx.store,
@@ -433,10 +442,7 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
 
   for (const sellData of sellsData) {
     tokensIds.add(
-      `${
-        contractMapping.get(sellData.nftContractAddress)?.contractModel
-          .symbol || ""
-      }-${sellData.tokenId}`
+      collectionTokenId(sellData.nftContractAddress, sellData.tokenId)
     );
     ownersIds.add(sellData.from);
     // ownersIds.add(sellData.to);
@@ -466,10 +472,7 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
     }
 
     let token = tokens.get(
-      `${
-        contractMapping.get(sellData.nftContractAddress)?.contractModel
-          .symbol || ""
-      }-${sellData.tokenId}`
+      `${collectionTokenId(sellData.nftContractAddress, sellData.tokenId)}`
     );
 
     if (token == null) {
@@ -491,10 +494,10 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
         imageUri = "";
       }
       token = new Token({
-        id: `${
-          contractMapping.get(sellData.nftContractAddress)?.contractModel
-            .symbol || ""
-        }-${sellData.tokenId}`,
+        id: `${collectionTokenId(
+          sellData.nftContractAddress,
+          sellData.tokenId
+        )}`,
         uri,
         contract: await getContractEntity(
           ctx.store,
@@ -585,10 +588,7 @@ async function saveBuy(ctx: Context, buysData: BuyData[]) {
 
   for (const buyData of buysData) {
     tokensIds.add(
-      `${
-        contractMapping.get(buyData.nftContractAddress)?.contractModel.symbol ||
-        ""
-      }-${buyData.tokenId}`
+      collectionTokenId(buyData.nftContractAddress, buyData.tokenId)
     );
     ownersIds.add(buyData.from);
     ownersIds.add(buyData.to);
@@ -624,10 +624,7 @@ async function saveBuy(ctx: Context, buysData: BuyData[]) {
     }
 
     let token = tokens.get(
-      `${
-        contractMapping.get(buyData.nftContractAddress)?.contractModel.symbol ||
-        ""
-      }-${buyData.tokenId}`
+      `${collectionTokenId(buyData.nftContractAddress, buyData.tokenId)}`
     );
 
     if (token != null) {
