@@ -3,8 +3,7 @@ import * as fishMarketplace from "../abi/fishMarketplace";
 import WebsocketProvider from "web3-providers-ws";
 
 // export const CHAIN_NODE = "wss://astar.public.blastapi.io";
-export const CHAIN_NODE =
-  "wss://astar.api.onfinality.io/ws?apikey=70f02ff7-58b9-4d16-818c-2bf302230f7d";
+export const CHAIN_NODE = "wss://rpc.pinknode.io/astar/0cac53c9-2bc5-440f-9f3b-9e2307c46d60"
 // export const CHAIN_NODE =
 //   "wss://rpc.pinknode.io/moonriver/0cac53c9-2bc5-440f-9f3b-9e2307c46d60";
 
@@ -25,7 +24,7 @@ const w3s = new WebsocketProvider(CHAIN_NODE, {
 let w3sProvider = new ethers.providers.Web3Provider(w3s);
 
 export const fishMarketplaceContract = new ethers.Contract(
-  "0x5361ea4aC16458d83579e197DE1649e31f8529eD".toLowerCase(),
+  "0x77866351DE62b5eaD3cC7393BbA657C204265ccA".toLowerCase(),
   fishMarketplace.abi,
   w3sProvider
 );

@@ -22,32 +22,33 @@ import { ticketPassAContract } from "./helper/TicketPassA";
 import { Owner, Token, Transfer, Activity, ActivityType } from "./model";
 import * as erc721 from "./abi/erc721";
 import * as fishMarketplace from "./abi/fishMarketplace";
+import * as nftFish from "./abi/nftFish";
 
 const database = new TypeormDatabase();
 const processor = new SubstrateBatchProcessor()
   .setBatchSize(500)
-  .setBlockRange({ from: 1517540 })
+  .setBlockRange({ from: 1563479 })
   .setDataSource({
     chain: CHAIN_NODE,
     archive: lookupArchive("astar", { release: "FireSquid" }),
   })
   .setTypesBundle("astar")
-  .addEvmLog(ticketPassAContract.address, {
-    range: { from: 1517540 },
-    filter: [erc721.events["Transfer(address,address,uint256)"].topic],
+  .addEvmLog(fishContract.address, {
+    range: { from: 1565503 },
+    filter: [nftFish.events["Minted(address,address,uint256,string)"].topic],
+  })
+  .addEvmLog(fishMarketplaceContract.address, {
+    range: { from: 1565505 },
+    filter: [
+      [
+        fishMarketplace.events["SellEvent(address,uint256,uint256,address)"]
+          .topic,
+        fishMarketplace.events[
+          "BuyEvent(address,address,uint256,uint256,uint256,address)"
+        ].topic,
+      ],
+    ],
   });
-// .addEvmLog(fishMarketplaceContract.address, {
-//   range: { from: 1477749 },
-//   filter: [
-//     [
-//       fishMarketplace.events["SellEvent(address,uint256,uint256,address)"]
-//         .topic,
-//       fishMarketplace.events[
-//         "BuyEvent(address,address,uint256,uint256,uint256,address)"
-//       ].topic,
-//     ],
-//   ],
-// });
 
 type Item = BatchProcessorItem<typeof processor>;
 type Context = BatchContext<Store, Item>;
@@ -124,7 +125,7 @@ processor.run(database, async (ctx) => {
 
         if (item.event.args.address === ticketPassAContract.address) {
           console.log(
-            "==============THERE IS AN EVENT FROM THE NFT FISH================"
+            "==============THERE IS AN EVENT FROM TICKETPASS================"
           );
           const transfer = handleTransfer(block.header, item.event);
           transfersData.push(transfer);
@@ -168,6 +169,7 @@ type TransferData = {
   block: number;
   transactionHash: string;
   contractAddress: string;
+  fishId?: string;
 };
 
 type SellData = {
@@ -206,19 +208,40 @@ function handleTransfer(
   block: SubstrateBlock,
   event: EvmLogEvent
 ): TransferData {
-  const { from, to, tokenId } = erc721.events[
-    "Transfer(address,address,uint256)"
-  ].decode(event.args);
+
+  let from: string
+  let to: string
+  let tokenId: string
+  let fishId: string | undefined
+
+  if (event.args.address === fishContract.address) {
+    const params = nftFish.events["Minted(address,address,uint256,string)"].decode(event.args)
+    from = params.from
+    to = params.to
+    tokenId = params.tokenId.toString()
+    if (params.fishID) {
+      fishId = params.fishID;
+    }
+  } else {
+    const params = erc721.events[
+      "Transfer(address,address,uint256)"
+    ].decode(event.args);
+
+    from = params.from
+    to = params.to
+    tokenId = params.tokenId.toString()
+  }
 
   const transfer: TransferData = {
     id: event.id,
-    token: tokenId.toString(),
+    token: tokenId,
     from,
     to,
     timestamp: BigInt(block.timestamp),
     block: block.height,
     transactionHash: event.evmTxHash,
     contractAddress: event.args.address,
+    fishId
   };
   return transfer;
 }
@@ -330,23 +353,20 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
     );
 
     if (token == null) {
-      const uri = await getTokenURI(
-        transferData.token,
-        transferData.contractAddress
-      );
-      let imageUri: string;
-      if (uri.includes("ipfs://")) {
-        try {
+      let uri = null;
+      let imageUri = null;
+      try {
+        uri = await getTokenURI(
+          transferData.token,
+          transferData.contractAddress
+        );
+        if (uri.includes("ipfs://")) {
           const get = await axios.get<ITokenURI>(
             uri.replace("ipfs://", "https://nftstorage.link/ipfs/")
           );
           imageUri = get.data.image;
-        } catch (error) {
-          imageUri = "";
         }
-      } else {
-        imageUri = "";
-      }
+      } catch (error) {}
       token = new Token({
         id: `${collectionTokenId(
           transferData.contractAddress,
@@ -359,6 +379,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
         ),
         imageUri,
         tokenId: parseInt(transferData.token),
+        fishId: transferData?.fishId
       });
       tokens.set(token.id, token);
 
@@ -393,8 +414,29 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
         activities.add(activityEntity);
       }
     }
+
     token.isListed = false;
     token.owner = to;
+
+    // incase uri fetching fail
+    if (!token.uri || !token.imageUri) {
+      try {
+        let uri = null;
+        let imageUri = null;
+        uri = await getTokenURI(
+          transferData.token,
+          transferData.contractAddress
+        );
+        token.uri = uri;
+        if (uri.includes("ipfs://")) {
+          const get = await axios.get<ITokenURI>(
+            uri.replace("ipfs://", "https://nftstorage.link/ipfs/")
+          );
+          imageUri = get.data.image;
+          token.imageUri = imageUri;
+        }
+      } catch (error) {}
+    }
 
     const { id, block, transactionHash, timestamp } = transferData;
 
@@ -442,6 +484,14 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
         });
         activities.add(activityEntity);
       }
+    }
+
+    try {
+      await axios.post("https://us-central1-fishing-game-cosmize.cloudfunctions.net/web/api/updateMintedFish", 
+        { fish_id: transferData?.fishId, token_id: transferData.token.toString() }
+      )
+    } catch (error) {
+      console.log(`Error API : ${error}`)
     }
   }
 
@@ -495,72 +545,10 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
       `${collectionTokenId(sellData.nftContractAddress, sellData.tokenId)}`
     );
 
-    if (token == null) {
-      const uri = await getTokenURI(
-        sellData.tokenId,
-        sellData.nftContractAddress
-      );
-      let imageUri: string;
-      if (uri.includes("ipfs://")) {
-        try {
-          const get = await axios.get<ITokenURI>(
-            uri.replace("ipfs://", "https://nftstorage.link/ipfs/")
-          );
-          imageUri = get.data.image;
-        } catch (error) {
-          imageUri = "";
-        }
-      } else {
-        imageUri = "";
-      }
-      token = new Token({
-        id: `${collectionTokenId(
-          sellData.nftContractAddress,
-          sellData.tokenId
-        )}`,
-        uri,
-        contract: await getContractEntity(
-          ctx.store,
-          sellData.nftContractAddress
-        ),
-        imageUri,
-        tokenId: parseInt(sellData.tokenId),
-      });
-      tokens.set(token.id, token);
-
-      let mintActivity = await ctx.store.get(
-        Activity,
-        sellData.nftContractAddress +
-          "-" +
-          sellData.transactionHash +
-          "-" +
-          sellData.tokenId +
-          "-" +
-          ActivityType.MINT
-      );
-
-      if (mintActivity == null) {
-        mintActivity = new Activity({
-          id:
-            sellData.nftContractAddress +
-            "-" +
-            sellData.transactionHash +
-            "-" +
-            sellData.tokenId +
-            "-" +
-            ActivityType.MINT,
-          type: ActivityType.MINT,
-          block: sellData.block,
-          from,
-          timestamp: sellData.timestamp,
-          token,
-          transactionHash: sellData.transactionHash,
-        });
-        activities.add(mintActivity);
-      }
+    if (token != null) {
+      token.owner = from;
+      token.isListed = true;
     }
-    token.owner = from;
-    token.isListed = true;
 
     const {
       block,
