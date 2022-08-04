@@ -27,16 +27,12 @@ import * as nftFish from "./abi/nftFish";
 const database = new TypeormDatabase();
 const processor = new SubstrateBatchProcessor()
   .setBatchSize(500)
-  .setBlockRange({ from: 1563479 })
+  .setBlockRange({ from: 1565505 })
   .setDataSource({
     chain: CHAIN_NODE,
     archive: lookupArchive("astar", { release: "FireSquid" }),
   })
   .setTypesBundle("astar")
-  .addEvmLog(fishContract.address, {
-    range: { from: 1565503 },
-    filter: [nftFish.events["Minted(address,address,uint256,string)"].topic],
-  })
   .addEvmLog(fishMarketplaceContract.address, {
     range: { from: 1565505 },
     filter: [
@@ -48,6 +44,10 @@ const processor = new SubstrateBatchProcessor()
         ].topic,
       ],
     ],
+  })
+  .addEvmLog(fishContract.address, {
+    range: { from: 1572785 },
+    filter: [nftFish.events["Minted(address,address,uint256,string)"].topic],
   });
 
 type Item = BatchProcessorItem<typeof processor>;
@@ -200,6 +200,7 @@ type BuyData = {
 
 interface ITokenURI {
   image: string;
+  image_alt: string;
   description: string;
   name: string;
 }
@@ -360,11 +361,20 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           transferData.token,
           transferData.contractAddress
         );
-        if (uri.includes("ipfs://")) {
-          const get = await axios.get<ITokenURI>(
-            uri.replace("ipfs://", "https://nftstorage.link/ipfs/")
-          );
-          imageUri = get.data.image;
+        // if (uri.includes("ipfs://")) {
+        //   const get = await axios.get<ITokenURI>(
+        //     uri.replace("ipfs://", "https://nftstorage.link/ipfs/")
+        //   );
+        //   imageUri = get.data.image;
+        // }
+        const get = await axios.get<ITokenURI>(
+          uri
+        );
+        if (get.data.image_alt) {
+          imageUri = get.data.image_alt
+        }
+        if (get.data.image) {
+          imageUri = get.data.image
         }
       } catch (error) {}
       token = new Token({
@@ -428,13 +438,22 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           transferData.contractAddress
         );
         token.uri = uri;
-        if (uri.includes("ipfs://")) {
-          const get = await axios.get<ITokenURI>(
-            uri.replace("ipfs://", "https://nftstorage.link/ipfs/")
-          );
-          imageUri = get.data.image;
-          token.imageUri = imageUri;
+        // if (uri.includes("ipfs://")) {
+        //   const get = await axios.get<ITokenURI>(
+        //     uri.replace("ipfs://", "https://nftstorage.link/ipfs/")
+        //   );
+        //   imageUri = get.data.image;
+        // }
+        const get = await axios.get<ITokenURI>(
+          uri
+        );
+        if (get.data.image_alt) {
+          imageUri = get.data.image_alt
         }
+        if (get.data.image) {
+          imageUri = get.data.image
+        }
+        token.imageUri = imageUri
       } catch (error) {}
     }
 

@@ -25,7 +25,7 @@ const w3s = new WebsocketProvider(CHAIN_NODE, {
 let w3sProvider = new ethers.providers.Web3Provider(w3s);
 
 export const fishContract = new ethers.Contract(
-  "0x5cfcDD7d59e8E3A7435E9E8e568714facE5eB101".toLowerCase(),
+  "0x08331E2B4eF531B2e359366f9943B19E1a7b5f69".toLowerCase(),
   nftFish.abi,
   w3sProvider
 );
