@@ -46,7 +46,7 @@ const processor = new SubstrateBatchProcessor()
     ],
   })
   .addEvmLog(fishContract.address, {
-    range: { from: 1572785 },
+    range: { from: 1572955 },
     filter: [nftFish.events["Minted(address,address,uint256,string)"].topic],
   });
 
