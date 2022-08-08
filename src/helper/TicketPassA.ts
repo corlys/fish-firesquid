@@ -5,8 +5,7 @@ import WebsocketProvider from "web3-providers-ws";
 // export const CHAIN_NODE = "wss://astar.public.blastapi.io";
 // export const CHAIN_NODE =
 //   "wss://astar.api.onfinality.io/ws?apikey=70f02ff7-58b9-4d16-818c-2bf302230f7d";
-export const CHAIN_NODE =
-  "wss://rpc.pinknode.io/astar/0cac53c9-2bc5-440f-9f3b-9e2307c46d60";
+export const CHAIN_NODE = "wss://rpc.pinknode.io/astar/0cac53c9-2bc5-440f-9f3b-9e2307c46d60";
 
 // @ts-ignore It appears default export is required otherwise it throws 'WebsocketProvider is not a constructor error', the typings says otherwise but well ...
 const w3s = new WebsocketProvider(CHAIN_NODE, {
@@ -25,7 +24,7 @@ const w3s = new WebsocketProvider(CHAIN_NODE, {
 let w3sProvider = new ethers.providers.Web3Provider(w3s);
 
 export const ticketPassAContract = new ethers.Contract(
-  "0x66B2E7e61681382cec6c609a4D6E06373DAAB42f".toLowerCase(),
+  "0x6a8bEf0C6b35b60eE5141d132bC8ae454b887bD1".toLowerCase(),
   erc721.abi,
   w3sProvider
 );
