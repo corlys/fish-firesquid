@@ -8,7 +8,6 @@ type Token @entity {
   imageUri: String
   tokenId: Int!
   isListed: Boolean
-  fishId: String
 }
 
 type Owner @entity {

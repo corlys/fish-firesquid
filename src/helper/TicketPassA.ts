@@ -24,7 +24,7 @@ const w3s = new WebsocketProvider(CHAIN_NODE, {
 let w3sProvider = new ethers.providers.Web3Provider(w3s);
 
 export const ticketPassAContract = new ethers.Contract(
-  "0x6a8bEf0C6b35b60eE5141d132bC8ae454b887bD1".toLowerCase(),
+  "0xa3E00e7dc166fFcE1D70A718DC1A2e48cdd1a84f".toLowerCase(),
   erc721.abi,
   w3sProvider
 );
