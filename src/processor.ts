@@ -342,7 +342,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           transferData.token,
           transferData.contractAddress
         );
-        if (uri.length === "https://n".length) {
+        if (uri.includes("https://")) {
         } else {
           // if (uri.includes("ipfs://")) {
           //   const get = await axios.get<ITokenURI>(
@@ -406,7 +406,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           transferData.token,
           transferData.contractAddress
         );
-        if (uri.length === "https://n".length) {
+        if (uri.includes("https://")) {
         } else {
           token.uri = uri;
           // if (uri.includes("ipfs://")) {
