@@ -613,19 +613,29 @@ async function saveBuy(ctx: Context, buysData: BuyData[]) {
 }
 
 async function saveTicketPass(ctx: Context, mintsData: TicketMintData[]) {
-  
   for (const mintData of mintsData) {
-    // Shoot the API here
-    console.log("An mint api was shot");
+    const { startTokenID, quantity } = mintData;
+    let tokenIds: number[] = Array.from(new Array(quantity), (x, i) => i + startTokenID);
+    for (const tokenId of tokenIds) {
+      // Shoot here
+      console.log(`tokenId : ${tokenId}`)
+      // try {
+      //   await axios.post("https://", { tokenId })
+      // } catch (error) {}
+    }
   }
-
 }
 
 async function saveDevTicketPass(ctx: Context, devMintsData: DevTicketMintData[]) {
-  
-  for (const devMintData of devMintsData) {
-    // Shoot the API here
-    console.log("An dev mint api was shot");
+  for (const mintData of devMintsData) {
+    const { startTokenID, quantity } = mintData;
+    let tokenIds: number[] = Array.from(new Array(quantity), (x, i) => i + startTokenID);
+    for (const tokenId of tokenIds) {
+      // Shoot here
+      console.log(`tokenId : ${tokenId}`)
+      // try {
+      //   await axios.post("https://", { tokenId })
+      // } catch (error) {}
+    }
   }
-
 }
