@@ -13,7 +13,6 @@ import axios from "axios";
 import {
   CHAIN_NODE,
   getContractEntity,
-  getTokenURI,
   contractMapping,
 } from "./contract";
 import { TransferData, BuyData, SellData, ITokenURI, TicketMintData, DevTicketMintData  } from "./types"
@@ -26,18 +25,19 @@ import * as erc721 from "./abi/erc721";
 import * as fishMarketplace from "./abi/fishMarketplace";
 import * as nftFish from "./abi/nftFish";
 import * as ticketPassA from "./abi/ticketPassA"
+import { ethers } from "ethers";
 
 const database = new TypeormDatabase();
 const processor = new SubstrateBatchProcessor()
   .setBatchSize(500)
-  .setBlockRange({ from: 1620415 })
+  .setBlockRange({ from: 1675155 })
   .setDataSource({
     chain: CHAIN_NODE,
     archive: lookupArchive("astar", { release: "FireSquid" }),
   })
   .setTypesBundle("astar")
   .addEvmLog(ticketPassAContract.address, {
-    range: { from: 1620415 },
+    range: { from: 1675155 },
     filter: [
       [
         ticketPassA.events["Transfer(address,address,uint256)"].topic,
@@ -60,11 +60,11 @@ processor.run(database, async (ctx) => {
   for (const block of ctx.blocks) {
     for (const item of block.items) {
       if (item.name === "EVM.Log") {
-        console.log(
+        ctx.log.info(
           `=======================${item.event.args.address}=========================`
         );
         if (item.event.args.address === fishMarketplaceContract.address) {
-          console.log(
+          ctx.log.info(
             "==============THERE IS AN EVENT FROM THE MARKETPLACE================"
           );
           const topics = item.event.args.topics;
@@ -95,7 +95,7 @@ processor.run(database, async (ctx) => {
         }
 
         if (item.event.args.address === ticketPassAContract.address) {
-          console.log(
+          ctx.log.info(
             "==============THERE IS AN EVENT FROM TICKETPASS================"
           );
           const topics = item.event.args.topics;
@@ -278,8 +278,8 @@ const collectionTokenId = (address: string, tokenId: string) => {
 };
 
 async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
-  console.log("===================BEGIN SAVETRANSFER================");
-  console.log("Transfer Data Length : ", transfersData.length);
+  ctx.log.info("===================BEGIN SAVETRANSFER================");
+  ctx.log.info(`Transfer Data Length : ${transfersData.length}`);
   const tokensIds: Set<string> = new Set();
   const ownersIds: Set<string> = new Set();
 
@@ -310,6 +310,10 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
 
   for (const transferData of transfersData) {
     let activityEntity: Activity | null | undefined = null;
+    // Create contract instance
+
+    const blockHeight = { height: transferData.block }
+    const tokenContract = new erc721.Contract(ctx, blockHeight, transferData.contractAddress)
 
     let from = owners.get(transferData.from);
     if (from == null) {
@@ -327,21 +331,18 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
       `${collectionTokenId(transferData.contractAddress, transferData.token)}`
     );
 
-    console.log(
+    ctx.log.info(
       `Token With the id of ${collectionTokenId(
         transferData.contractAddress,
         transferData.token
       )} does ${token ? "exist" : "not exist"}`
     );
-
     if (token == null) {
       let uri = null;
       let imageUri = null;
       try {
-        uri = await getTokenURI(
-          transferData.token,
-          transferData.contractAddress
-        );
+        uri = await tokenContract.tokenURI(ethers.BigNumber.from(transferData.token))
+        ctx.log.info(`uri initial = ${uri}`)
         if (uri.includes("https://")) {
         } else {
           // if (uri.includes("ipfs://")) {
@@ -402,10 +403,8 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
       try {
         let uri = null;
         let imageUri = null;
-        uri = await getTokenURI(
-          transferData.token,
-          transferData.contractAddress
-        );
+        uri = await tokenContract.tokenURI(ethers.BigNumber.from(transferData.token))
+        ctx.log.info(`uri if still null before = ${uri}`)
         if (uri.includes("https://")) {
         } else {
           token.uri = uri;
@@ -478,18 +477,18 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
     }
   }
 
-  // console.log([...tokens.values()]);
+  // ctx.log.info([...tokens.values()]);
 
   await ctx.store.save([...owners.values()]);
   await ctx.store.save([...tokens.values()]);
   await ctx.store.save([...transfers]);
   await ctx.store.save([...activities]);
 
-  console.log("===================END SAVETRANSFER================");
+  ctx.log.info("===================END SAVETRANSFER================");
 }
 
 async function saveSell(ctx: Context, sellsData: SellData[]) {
-  console.log("===================BEGIN SAVESELL================");
+  ctx.log.info("===================BEGIN SAVESELL================");
   const tokensIds: Set<string> = new Set();
   const ownersIds: Set<string> = new Set();
 
@@ -538,17 +537,15 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
     activities.add(sellActivity);
   }
 
-  console.log("Sell Tokens", [...tokens.values()]);
-
   await ctx.store.save([...owners.values()]);
   await ctx.store.save([...tokens.values()]);
   await ctx.store.save([...activities]);
 
-  console.log("===================END SAVESELLL================");
+  ctx.log.info("===================END SAVESELLL================");
 }
 
 async function saveBuy(ctx: Context, buysData: BuyData[]) {
-  console.log("===================BEGIN SAVEBUY================");
+  ctx.log.info("===================BEGIN SAVEBUY================");
   const tokensIds: Set<string> = new Set();
   const ownersIds: Set<string> = new Set();
 
@@ -603,13 +600,11 @@ async function saveBuy(ctx: Context, buysData: BuyData[]) {
     activities.add(buyActivity);
   }
 
-  console.log("Buy Tokens", [...tokens.values()]);
-
   await ctx.store.save([...owners.values()]);
   await ctx.store.save([...tokens.values()]);
   await ctx.store.save([...activities]);
 
-  console.log("===================END SAVEBUY================");
+  ctx.log.info("===================END SAVEBUY================");
 }
 
 async function saveTicketPass(ctx: Context, mintsData: TicketMintData[]) {
@@ -618,10 +613,10 @@ async function saveTicketPass(ctx: Context, mintsData: TicketMintData[]) {
     let tokenIds: number[] = Array.from(new Array(quantity), (x, i) => i + startTokenID);
     for (const tokenId of tokenIds) {
       // Shoot here
-      console.log(`tokenId : ${tokenId}`)
-      // try {
-      //   await axios.post("https://", { tokenId })
-      // } catch (error) {}
+      ctx.log.info(`tokenId : ${tokenId}`)
+      try {
+        await axios.get(`https://jsonplaceholder.typicode.com/posts/${tokenId}`)
+      } catch (error) {}
     }
   }
 }
@@ -632,10 +627,10 @@ async function saveDevTicketPass(ctx: Context, devMintsData: DevTicketMintData[]
     let tokenIds: number[] = Array.from(new Array(quantity), (x, i) => i + startTokenID);
     for (const tokenId of tokenIds) {
       // Shoot here
-      console.log(`tokenId : ${tokenId}`)
-      // try {
-      //   await axios.post("https://", { tokenId })
-      // } catch (error) {}
+      ctx.log.info(`tokenId : ${tokenId}`)
+      try {
+        await axios.get(`https://jsonplaceholder.typicode.com/posts/${tokenId}`)
+      } catch (error) {}
     }
   }
 }

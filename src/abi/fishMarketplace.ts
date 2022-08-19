@@ -1,85 +1,113 @@
 import * as ethers from "ethers";
+import assert from "assert";
 
 export const abi = new ethers.utils.Interface(getJsonAbi());
 
-export interface BuyEvent0Event {
-  buyer: string;
-  seller: string;
-  tokenId: ethers.BigNumber;
-  price: ethers.BigNumber;
-  buyTime: ethers.BigNumber;
-  NFTAddress: string;
-}
+export type BuyEvent0Event = ([buyer: string, seller: string, tokenId: ethers.BigNumber, price: ethers.BigNumber, buyTime: ethers.BigNumber, NFTAddress: string] & {buyer: string, seller: string, tokenId: ethers.BigNumber, price: ethers.BigNumber, buyTime: ethers.BigNumber, NFTAddress: string})
 
-export interface OwnershipTransferred0Event {
-  previousOwner: string;
-  newOwner: string;
-}
+export type OwnershipTransferred0Event = ([previousOwner: string, newOwner: string] & {previousOwner: string, newOwner: string})
 
-export interface SellEvent0Event {
-  seller: string;
-  tokenId: ethers.BigNumber;
-  price: ethers.BigNumber;
-  NFTAddress: string;
-}
+export type SellEvent0Event = ([seller: string, tokenId: ethers.BigNumber, price: ethers.BigNumber, NFTAddress: string] & {seller: string, tokenId: ethers.BigNumber, price: ethers.BigNumber, NFTAddress: string})
 
 export interface EvmEvent {
   data: string;
   topics: string[];
 }
 
+function decodeEvent(signature: string, data: EvmEvent): any {
+  return abi.decodeEventLog(
+    abi.getEvent(signature),
+    data.data || "",
+    data.topics
+  );
+}
+
 export const events = {
-  "BuyEvent(address,address,uint256,uint256,uint256,address)":  {
+  "BuyEvent(address,address,uint256,uint256,uint256,address)": {
     topic: abi.getEventTopic("BuyEvent(address,address,uint256,uint256,uint256,address)"),
     decode(data: EvmEvent): BuyEvent0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("BuyEvent(address,address,uint256,uint256,uint256,address)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        buyer: result[0],
-        seller: result[1],
-        tokenId: result[2],
-        price: result[3],
-        buyTime: result[4],
-        NFTAddress: result[5],
-      }
+      return decodeEvent("BuyEvent(address,address,uint256,uint256,uint256,address)", data)
     }
   }
   ,
-  "OwnershipTransferred(address,address)":  {
+  "OwnershipTransferred(address,address)": {
     topic: abi.getEventTopic("OwnershipTransferred(address,address)"),
     decode(data: EvmEvent): OwnershipTransferred0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("OwnershipTransferred(address,address)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        previousOwner: result[0],
-        newOwner: result[1],
-      }
+      return decodeEvent("OwnershipTransferred(address,address)", data)
     }
   }
   ,
-  "SellEvent(address,uint256,uint256,address)":  {
+  "SellEvent(address,uint256,uint256,address)": {
     topic: abi.getEventTopic("SellEvent(address,uint256,uint256,address)"),
     decode(data: EvmEvent): SellEvent0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("SellEvent(address,uint256,uint256,address)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        seller: result[0],
-        tokenId: result[1],
-        price: result[2],
-        NFTAddress: result[3],
-      }
+      return decodeEvent("SellEvent(address,uint256,uint256,address)", data)
     }
   }
   ,
+}
+
+interface ChainContext  {
+  _chain: Chain
+}
+
+interface BlockContext  {
+  _chain: Chain
+  block: Block
+}
+
+interface Block  {
+  height: number
+}
+
+interface Chain  {
+  client:  {
+    call: <T=any>(method: string, params?: unknown[]) => Promise<T>
+  }
+}
+
+export class Contract  {
+  private readonly _chain: Chain
+  private readonly blockHeight: number
+  readonly address: string
+
+  constructor(ctx: BlockContext, address: string)
+  constructor(ctx: ChainContext, block: Block, address: string)
+  constructor(ctx: BlockContext, blockOrAddress: Block | string, address?: string) {
+    this._chain = ctx._chain
+    if (typeof blockOrAddress === 'string')  {
+      this.blockHeight = ctx.block.height
+      this.address = ethers.utils.getAddress(blockOrAddress)
+    }
+    else  {
+      assert(address != null)
+      this.blockHeight = blockOrAddress.height
+      this.address = ethers.utils.getAddress(address)
+    }
+  }
+
+  async NFTAddress(): Promise<string> {
+    return this.call("NFTAddress", [])
+  }
+
+  async fishInfo(arg0: ethers.BigNumber): Promise<([seller: string, tokenId: ethers.BigNumber, price: ethers.BigNumber] & {seller: string, tokenId: ethers.BigNumber, price: ethers.BigNumber})> {
+    return this.call("fishInfo", [arg0])
+  }
+
+  async owner(): Promise<string> {
+    return this.call("owner", [])
+  }
+
+  async platformAddress(): Promise<string> {
+    return this.call("platformAddress", [])
+  }
+
+  private async call(name: string, args: any[]) : Promise<any> {
+    const fragment = abi.getFunction(name)
+    const data = abi.encodeFunctionData(fragment, args)
+    const result = await this._chain.client.call('eth_call', [{to: this.address, data}, this.blockHeight])
+    const decoded = abi.decodeFunctionResult(fragment, result)
+    return decoded.length > 1 ? decoded : decoded[0]
+  }
 }
 
 function getJsonAbi(): any {

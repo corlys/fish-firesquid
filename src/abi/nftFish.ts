@@ -1,123 +1,159 @@
 import * as ethers from "ethers";
+import assert from "assert";
 
 export const abi = new ethers.utils.Interface(getJsonAbi());
 
-export interface Approval0Event {
-  owner: string;
-  approved: string;
-  tokenId: ethers.BigNumber;
-}
+export type Approval0Event = ([owner: string, approved: string, tokenId: ethers.BigNumber] & {owner: string, approved: string, tokenId: ethers.BigNumber})
 
-export interface ApprovalForAll0Event {
-  owner: string;
-  operator: string;
-  approved: boolean;
-}
+export type ApprovalForAll0Event = ([owner: string, operator: string, approved: boolean] & {owner: string, operator: string, approved: boolean})
 
-export interface Minted0Event {
-  from: string;
-  to: string;
-  tokenId: ethers.BigNumber;
-  fishID: string;
-}
+export type Minted0Event = ([from: string, to: string, tokenId: ethers.BigNumber, fishID: string] & {from: string, to: string, tokenId: ethers.BigNumber, fishID: string})
 
-export interface OwnershipTransferred0Event {
-  previousOwner: string;
-  newOwner: string;
-}
+export type OwnershipTransferred0Event = ([previousOwner: string, newOwner: string] & {previousOwner: string, newOwner: string})
 
-export interface Transfer0Event {
-  from: string;
-  to: string;
-  tokenId: ethers.BigNumber;
-}
+export type Transfer0Event = ([from: string, to: string, tokenId: ethers.BigNumber] & {from: string, to: string, tokenId: ethers.BigNumber})
 
 export interface EvmEvent {
   data: string;
   topics: string[];
 }
 
+function decodeEvent(signature: string, data: EvmEvent): any {
+  return abi.decodeEventLog(
+    abi.getEvent(signature),
+    data.data || "",
+    data.topics
+  );
+}
+
 export const events = {
-  "Approval(address,address,uint256)":  {
+  "Approval(address,address,uint256)": {
     topic: abi.getEventTopic("Approval(address,address,uint256)"),
     decode(data: EvmEvent): Approval0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("Approval(address,address,uint256)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        owner: result[0],
-        approved: result[1],
-        tokenId: result[2],
-      }
+      return decodeEvent("Approval(address,address,uint256)", data)
     }
   }
   ,
-  "ApprovalForAll(address,address,bool)":  {
+  "ApprovalForAll(address,address,bool)": {
     topic: abi.getEventTopic("ApprovalForAll(address,address,bool)"),
     decode(data: EvmEvent): ApprovalForAll0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("ApprovalForAll(address,address,bool)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        owner: result[0],
-        operator: result[1],
-        approved: result[2],
-      }
+      return decodeEvent("ApprovalForAll(address,address,bool)", data)
     }
   }
   ,
-  "Minted(address,address,uint256,string)":  {
+  "Minted(address,address,uint256,string)": {
     topic: abi.getEventTopic("Minted(address,address,uint256,string)"),
     decode(data: EvmEvent): Minted0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("Minted(address,address,uint256,string)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        from: result[0],
-        to: result[1],
-        tokenId: result[2],
-        fishID: result[3],
-      }
+      return decodeEvent("Minted(address,address,uint256,string)", data)
     }
   }
   ,
-  "OwnershipTransferred(address,address)":  {
+  "OwnershipTransferred(address,address)": {
     topic: abi.getEventTopic("OwnershipTransferred(address,address)"),
     decode(data: EvmEvent): OwnershipTransferred0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("OwnershipTransferred(address,address)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        previousOwner: result[0],
-        newOwner: result[1],
-      }
+      return decodeEvent("OwnershipTransferred(address,address)", data)
     }
   }
   ,
-  "Transfer(address,address,uint256)":  {
+  "Transfer(address,address,uint256)": {
     topic: abi.getEventTopic("Transfer(address,address,uint256)"),
     decode(data: EvmEvent): Transfer0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("Transfer(address,address,uint256)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        from: result[0],
-        to: result[1],
-        tokenId: result[2],
-      }
+      return decodeEvent("Transfer(address,address,uint256)", data)
     }
   }
   ,
+}
+
+interface ChainContext  {
+  _chain: Chain
+}
+
+interface BlockContext  {
+  _chain: Chain
+  block: Block
+}
+
+interface Block  {
+  height: number
+}
+
+interface Chain  {
+  client:  {
+    call: <T=any>(method: string, params?: unknown[]) => Promise<T>
+  }
+}
+
+export class Contract  {
+  private readonly _chain: Chain
+  private readonly blockHeight: number
+  readonly address: string
+
+  constructor(ctx: BlockContext, address: string)
+  constructor(ctx: ChainContext, block: Block, address: string)
+  constructor(ctx: BlockContext, blockOrAddress: Block | string, address?: string) {
+    this._chain = ctx._chain
+    if (typeof blockOrAddress === 'string')  {
+      this.blockHeight = ctx.block.height
+      this.address = ethers.utils.getAddress(blockOrAddress)
+    }
+    else  {
+      assert(address != null)
+      this.blockHeight = blockOrAddress.height
+      this.address = ethers.utils.getAddress(address)
+    }
+  }
+
+  async balanceOf(owner: string): Promise<ethers.BigNumber> {
+    return this.call("balanceOf", [owner])
+  }
+
+  async getApproved(tokenId: ethers.BigNumber): Promise<string> {
+    return this.call("getApproved", [tokenId])
+  }
+
+  async getExist(_tokenId: ethers.BigNumber): Promise<boolean> {
+    return this.call("getExist", [_tokenId])
+  }
+
+  async isApprovedForAll(owner: string, operator: string): Promise<boolean> {
+    return this.call("isApprovedForAll", [owner, operator])
+  }
+
+  async marketAddress(): Promise<string> {
+    return this.call("marketAddress", [])
+  }
+
+  async name(): Promise<string> {
+    return this.call("name", [])
+  }
+
+  async owner(): Promise<string> {
+    return this.call("owner", [])
+  }
+
+  async ownerOf(tokenId: ethers.BigNumber): Promise<string> {
+    return this.call("ownerOf", [tokenId])
+  }
+
+  async supportsInterface(interfaceId: string): Promise<boolean> {
+    return this.call("supportsInterface", [interfaceId])
+  }
+
+  async symbol(): Promise<string> {
+    return this.call("symbol", [])
+  }
+
+  async tokenURI(tokenId: ethers.BigNumber): Promise<string> {
+    return this.call("tokenURI", [tokenId])
+  }
+
+  private async call(name: string, args: any[]) : Promise<any> {
+    const fragment = abi.getFunction(name)
+    const data = abi.encodeFunctionData(fragment, args)
+    const result = await this._chain.client.call('eth_call', [{to: this.address, data}, this.blockHeight])
+    const decoded = abi.decodeFunctionResult(fragment, result)
+    return decoded.length > 1 ? decoded : decoded[0]
+  }
 }
 
 function getJsonAbi(): any {

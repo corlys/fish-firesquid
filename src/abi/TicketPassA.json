@@ -636,7 +636,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "adminAddress",
         "type": "address"
       }
     ],

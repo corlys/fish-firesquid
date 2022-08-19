@@ -1,169 +1,209 @@
 import * as ethers from "ethers";
+import assert from "assert";
 
 export const abi = new ethers.utils.Interface(getJsonAbi());
 
-export interface Approval0Event {
-  owner: string;
-  approved: string;
-  tokenId: ethers.BigNumber;
-}
+export type Approval0Event = ([owner: string, approved: string, tokenId: ethers.BigNumber] & {owner: string, approved: string, tokenId: ethers.BigNumber})
 
-export interface ApprovalForAll0Event {
-  owner: string;
-  operator: string;
-  approved: boolean;
-}
+export type ApprovalForAll0Event = ([owner: string, operator: string, approved: boolean] & {owner: string, operator: string, approved: boolean})
 
-export interface ConsecutiveTransfer0Event {
-  fromTokenId: ethers.BigNumber;
-  toTokenId: ethers.BigNumber;
-  from: string;
-  to: string;
-}
+export type ConsecutiveTransfer0Event = ([fromTokenId: ethers.BigNumber, toTokenId: ethers.BigNumber, from: string, to: string] & {fromTokenId: ethers.BigNumber, toTokenId: ethers.BigNumber, from: string, to: string})
 
-export interface DevMintEvent0Event {
-  startTokenID: ethers.BigNumber;
-  to: string;
-  quantity: ethers.BigNumber;
-}
+export type DevMintEvent0Event = ([startTokenID: ethers.BigNumber, to: string, quantity: ethers.BigNumber] & {startTokenID: ethers.BigNumber, to: string, quantity: ethers.BigNumber})
 
-export interface MintEvent0Event {
-  startTokenID: ethers.BigNumber;
-  to: string;
-  quantity: ethers.BigNumber;
-  value: ethers.BigNumber;
-}
+export type MintEvent0Event = ([startTokenID: ethers.BigNumber, to: string, quantity: ethers.BigNumber, value: ethers.BigNumber] & {startTokenID: ethers.BigNumber, to: string, quantity: ethers.BigNumber, value: ethers.BigNumber})
 
-export interface OwnershipTransferred0Event {
-  previousOwner: string;
-  newOwner: string;
-}
+export type OwnershipTransferred0Event = ([previousOwner: string, newOwner: string] & {previousOwner: string, newOwner: string})
 
-export interface Transfer0Event {
-  from: string;
-  to: string;
-  tokenId: ethers.BigNumber;
-}
+export type Transfer0Event = ([from: string, to: string, tokenId: ethers.BigNumber] & {from: string, to: string, tokenId: ethers.BigNumber})
 
 export interface EvmEvent {
   data: string;
   topics: string[];
 }
 
+function decodeEvent(signature: string, data: EvmEvent): any {
+  return abi.decodeEventLog(
+    abi.getEvent(signature),
+    data.data || "",
+    data.topics
+  );
+}
+
 export const events = {
-  "Approval(address,address,uint256)":  {
+  "Approval(address,address,uint256)": {
     topic: abi.getEventTopic("Approval(address,address,uint256)"),
     decode(data: EvmEvent): Approval0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("Approval(address,address,uint256)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        owner: result[0],
-        approved: result[1],
-        tokenId: result[2],
-      }
+      return decodeEvent("Approval(address,address,uint256)", data)
     }
   }
   ,
-  "ApprovalForAll(address,address,bool)":  {
+  "ApprovalForAll(address,address,bool)": {
     topic: abi.getEventTopic("ApprovalForAll(address,address,bool)"),
     decode(data: EvmEvent): ApprovalForAll0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("ApprovalForAll(address,address,bool)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        owner: result[0],
-        operator: result[1],
-        approved: result[2],
-      }
+      return decodeEvent("ApprovalForAll(address,address,bool)", data)
     }
   }
   ,
-  "ConsecutiveTransfer(uint256,uint256,address,address)":  {
+  "ConsecutiveTransfer(uint256,uint256,address,address)": {
     topic: abi.getEventTopic("ConsecutiveTransfer(uint256,uint256,address,address)"),
     decode(data: EvmEvent): ConsecutiveTransfer0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("ConsecutiveTransfer(uint256,uint256,address,address)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        fromTokenId: result[0],
-        toTokenId: result[1],
-        from: result[2],
-        to: result[3],
-      }
+      return decodeEvent("ConsecutiveTransfer(uint256,uint256,address,address)", data)
     }
   }
   ,
-  "DevMintEvent(uint256,address,uint256)":  {
+  "DevMintEvent(uint256,address,uint256)": {
     topic: abi.getEventTopic("DevMintEvent(uint256,address,uint256)"),
     decode(data: EvmEvent): DevMintEvent0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("DevMintEvent(uint256,address,uint256)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        startTokenID: result[0],
-        to: result[1],
-        quantity: result[2],
-      }
+      return decodeEvent("DevMintEvent(uint256,address,uint256)", data)
     }
   }
   ,
-  "MintEvent(uint256,address,uint256,uint256)":  {
+  "MintEvent(uint256,address,uint256,uint256)": {
     topic: abi.getEventTopic("MintEvent(uint256,address,uint256,uint256)"),
     decode(data: EvmEvent): MintEvent0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("MintEvent(uint256,address,uint256,uint256)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        startTokenID: result[0],
-        to: result[1],
-        quantity: result[2],
-        value: result[3],
-      }
+      return decodeEvent("MintEvent(uint256,address,uint256,uint256)", data)
     }
   }
   ,
-  "OwnershipTransferred(address,address)":  {
+  "OwnershipTransferred(address,address)": {
     topic: abi.getEventTopic("OwnershipTransferred(address,address)"),
     decode(data: EvmEvent): OwnershipTransferred0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("OwnershipTransferred(address,address)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        previousOwner: result[0],
-        newOwner: result[1],
-      }
+      return decodeEvent("OwnershipTransferred(address,address)", data)
     }
   }
   ,
-  "Transfer(address,address,uint256)":  {
+  "Transfer(address,address,uint256)": {
     topic: abi.getEventTopic("Transfer(address,address,uint256)"),
     decode(data: EvmEvent): Transfer0Event {
-      const result = abi.decodeEventLog(
-        abi.getEvent("Transfer(address,address,uint256)"),
-        data.data || "",
-        data.topics
-      );
-      return  {
-        from: result[0],
-        to: result[1],
-        tokenId: result[2],
-      }
+      return decodeEvent("Transfer(address,address,uint256)", data)
     }
   }
   ,
+}
+
+interface ChainContext  {
+  _chain: Chain
+}
+
+interface BlockContext  {
+  _chain: Chain
+  block: Block
+}
+
+interface Block  {
+  height: number
+}
+
+interface Chain  {
+  client:  {
+    call: <T=any>(method: string, params?: unknown[]) => Promise<T>
+  }
+}
+
+export class Contract  {
+  private readonly _chain: Chain
+  private readonly blockHeight: number
+  readonly address: string
+
+  constructor(ctx: BlockContext, address: string)
+  constructor(ctx: ChainContext, block: Block, address: string)
+  constructor(ctx: BlockContext, blockOrAddress: Block | string, address?: string) {
+    this._chain = ctx._chain
+    if (typeof blockOrAddress === 'string')  {
+      this.blockHeight = ctx.block.height
+      this.address = ethers.utils.getAddress(blockOrAddress)
+    }
+    else  {
+      assert(address != null)
+      this.blockHeight = blockOrAddress.height
+      this.address = ethers.utils.getAddress(address)
+    }
+  }
+
+  async DEV_MINT_TOTAL_SUPPLY(): Promise<ethers.BigNumber> {
+    return this.call("DEV_MINT_TOTAL_SUPPLY", [])
+  }
+
+  async MINT_HASHSTRUCT(): Promise<string> {
+    return this.call("MINT_HASHSTRUCT", [])
+  }
+
+  async PRIV_SALE_PRICE(): Promise<ethers.BigNumber> {
+    return this.call("PRIV_SALE_PRICE", [])
+  }
+
+  async PUB_SALE_PRICE(): Promise<ethers.BigNumber> {
+    return this.call("PUB_SALE_PRICE", [])
+  }
+
+  async TOTAL_SUPPLY(): Promise<ethers.BigNumber> {
+    return this.call("TOTAL_SUPPLY", [])
+  }
+
+  async balanceOf(owner: string): Promise<ethers.BigNumber> {
+    return this.call("balanceOf", [owner])
+  }
+
+  async baseURI(): Promise<string> {
+    return this.call("baseURI", [])
+  }
+
+  async getApproved(tokenId: ethers.BigNumber): Promise<string> {
+    return this.call("getApproved", [tokenId])
+  }
+
+  async isApprovedForAll(owner: string, operator: string): Promise<boolean> {
+    return this.call("isApprovedForAll", [owner, operator])
+  }
+
+  async name(): Promise<string> {
+    return this.call("name", [])
+  }
+
+  async owner(): Promise<string> {
+    return this.call("owner", [])
+  }
+
+  async ownerOf(tokenId: ethers.BigNumber): Promise<string> {
+    return this.call("ownerOf", [tokenId])
+  }
+
+  async stage(): Promise<number> {
+    return this.call("stage", [])
+  }
+
+  async statusAdmin(adminAddress: string): Promise<boolean> {
+    return this.call("statusAdmin", [adminAddress])
+  }
+
+  async supportsInterface(interfaceId: string): Promise<boolean> {
+    return this.call("supportsInterface", [interfaceId])
+  }
+
+  async symbol(): Promise<string> {
+    return this.call("symbol", [])
+  }
+
+  async tokenURI(_id: ethers.BigNumber): Promise<string> {
+    return this.call("tokenURI", [_id])
+  }
+
+  async totalSupply(): Promise<ethers.BigNumber> {
+    return this.call("totalSupply", [])
+  }
+
+  async whitelistAddress(): Promise<string> {
+    return this.call("whitelistAddress", [])
+  }
+
+  private async call(name: string, args: any[]) : Promise<any> {
+    const fragment = abi.getFunction(name)
+    const data = abi.encodeFunctionData(fragment, args)
+    const result = await this._chain.client.call('eth_call', [{to: this.address, data}, this.blockHeight])
+    const decoded = abi.decodeFunctionResult(fragment, result)
+    return decoded.length > 1 ? decoded : decoded[0]
+  }
 }
 
 function getJsonAbi(): any {
@@ -805,7 +845,7 @@ function getJsonAbi(): any {
       "inputs": [
         {
           "internalType": "address",
-          "name": "",
+          "name": "adminAddress",
           "type": "address"
         }
       ],
