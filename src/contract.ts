@@ -7,6 +7,7 @@ import { astarCatsContract } from "./helper/AstarCats";
 import { astarDegenscontract } from "./helper/AstarDegens";
 import { fishContract } from "./helper/Fish";
 import { fishMarketplaceContract } from "./helper/FishMarketplace";
+import { ticketPassAContract } from "./helper/TicketPassA";
 import { Contract } from "./model";
 
 // export const CHAIN_NODE = "wss://astar.public.blastapi.io";
@@ -42,6 +43,17 @@ contractMapping.set(fishMarketplaceContract.address, {
     id: fishMarketplaceContract.address,
     name: "Fishy Marketplace",
     symbol: null,
+    totalSupply: null,
+    mintedTokens: [],
+  },
+});
+
+contractMapping.set(ticketPassAContract.address, {
+  ethersContract: ticketPassAContract,
+  contractModel: {
+    id: ticketPassAContract.address,
+    name: "Cosmite Ticket Pass",
+    symbol: "CTP",
     totalSupply: null,
     mintedTokens: [],
   },

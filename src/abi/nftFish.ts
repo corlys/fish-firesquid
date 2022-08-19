@@ -7,6 +7,10 @@ export type Approval0Event = ([owner: string, approved: string, tokenId: ethers.
 
 export type ApprovalForAll0Event = ([owner: string, operator: string, approved: boolean] & {owner: string, operator: string, approved: boolean})
 
+export type Minted0Event = ([from: string, to: string, tokenId: ethers.BigNumber, fishID: string] & {from: string, to: string, tokenId: ethers.BigNumber, fishID: string})
+
+export type OwnershipTransferred0Event = ([previousOwner: string, newOwner: string] & {previousOwner: string, newOwner: string})
+
 export type Transfer0Event = ([from: string, to: string, tokenId: ethers.BigNumber] & {from: string, to: string, tokenId: ethers.BigNumber})
 
 export interface EvmEvent {
@@ -34,6 +38,20 @@ export const events = {
     topic: abi.getEventTopic("ApprovalForAll(address,address,bool)"),
     decode(data: EvmEvent): ApprovalForAll0Event {
       return decodeEvent("ApprovalForAll(address,address,bool)", data)
+    }
+  }
+  ,
+  "Minted(address,address,uint256,string)": {
+    topic: abi.getEventTopic("Minted(address,address,uint256,string)"),
+    decode(data: EvmEvent): Minted0Event {
+      return decodeEvent("Minted(address,address,uint256,string)", data)
+    }
+  }
+  ,
+  "OwnershipTransferred(address,address)": {
+    topic: abi.getEventTopic("OwnershipTransferred(address,address)"),
+    decode(data: EvmEvent): OwnershipTransferred0Event {
+      return decodeEvent("OwnershipTransferred(address,address)", data)
     }
   }
   ,
@@ -89,20 +107,28 @@ export class Contract  {
     return this.call("balanceOf", [owner])
   }
 
-  async baseURI(): Promise<string> {
-    return this.call("baseURI", [])
-  }
-
   async getApproved(tokenId: ethers.BigNumber): Promise<string> {
     return this.call("getApproved", [tokenId])
+  }
+
+  async getExist(_tokenId: ethers.BigNumber): Promise<boolean> {
+    return this.call("getExist", [_tokenId])
   }
 
   async isApprovedForAll(owner: string, operator: string): Promise<boolean> {
     return this.call("isApprovedForAll", [owner, operator])
   }
 
+  async marketAddress(): Promise<string> {
+    return this.call("marketAddress", [])
+  }
+
   async name(): Promise<string> {
     return this.call("name", [])
+  }
+
+  async owner(): Promise<string> {
+    return this.call("owner", [])
   }
 
   async ownerOf(tokenId: ethers.BigNumber): Promise<string> {
@@ -117,20 +143,8 @@ export class Contract  {
     return this.call("symbol", [])
   }
 
-  async tokenByIndex(index: ethers.BigNumber): Promise<ethers.BigNumber> {
-    return this.call("tokenByIndex", [index])
-  }
-
-  async tokenOfOwnerByIndex(owner: string, index: ethers.BigNumber): Promise<ethers.BigNumber> {
-    return this.call("tokenOfOwnerByIndex", [owner, index])
-  }
-
   async tokenURI(tokenId: ethers.BigNumber): Promise<string> {
     return this.call("tokenURI", [tokenId])
-  }
-
-  async totalSupply(): Promise<ethers.BigNumber> {
-    return this.call("totalSupply", [])
   }
 
   private async call(name: string, args: any[]) : Promise<any> {
@@ -145,23 +159,7 @@ export class Contract  {
 function getJsonAbi(): any {
   return [
     {
-      "inputs": [
-        {
-          "internalType": "string",
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "symbol",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "baseURI",
-          "type": "string"
-        }
-      ],
+      "inputs": [],
       "stateMutability": "nonpayable",
       "type": "constructor"
     },
@@ -213,6 +211,56 @@ function getJsonAbi(): any {
         }
       ],
       "name": "ApprovalForAll",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "from",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "fishID",
+          "type": "string"
+        }
+      ],
+      "name": "Minted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
       "type": "event"
     },
     {
@@ -278,19 +326,6 @@ function getJsonAbi(): any {
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "baseURI",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
       "inputs": [
         {
           "internalType": "uint256",
@@ -304,6 +339,25 @@ function getJsonAbi(): any {
           "internalType": "address",
           "name": "",
           "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getExist",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",
@@ -335,12 +389,56 @@ function getJsonAbi(): any {
     },
     {
       "inputs": [],
+      "name": "marketAddress",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string[]",
+          "name": "fishURI",
+          "type": "string[]"
+        },
+        {
+          "internalType": "string[]",
+          "name": "fishID",
+          "type": "string[]"
+        }
+      ],
+      "name": "mint",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "name",
       "outputs": [
         {
           "internalType": "string",
           "name": "",
           "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -363,6 +461,13 @@ function getJsonAbi(): any {
         }
       ],
       "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "renounceOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -407,7 +512,7 @@ function getJsonAbi(): any {
         },
         {
           "internalType": "bytes",
-          "name": "_data",
+          "name": "data",
           "type": "bytes"
         }
       ],
@@ -430,6 +535,19 @@ function getJsonAbi(): any {
         }
       ],
       "name": "setApprovalForAll",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "marketPlace",
+          "type": "address"
+        }
+      ],
+      "name": "setMarketPlace",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -470,49 +588,6 @@ function getJsonAbi(): any {
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "index",
-          "type": "uint256"
-        }
-      ],
-      "name": "tokenByIndex",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "index",
-          "type": "uint256"
-        }
-      ],
-      "name": "tokenOfOwnerByIndex",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
           "name": "tokenId",
           "type": "uint256"
         }
@@ -523,19 +598,6 @@ function getJsonAbi(): any {
           "internalType": "string",
           "name": "",
           "type": "string"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "totalSupply",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -560,6 +622,19 @@ function getJsonAbi(): any {
         }
       ],
       "name": "transferFrom",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
