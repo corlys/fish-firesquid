@@ -328,7 +328,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
     }
 
     let token = tokens.get(
-      `${collectionTokenId(transferData.contractAddress, transferData.token)}`
+      collectionTokenId(transferData.contractAddress, transferData.token)
     );
 
     ctx.log.info(
@@ -337,6 +337,7 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
         transferData.token
       )} does ${token ? "exist" : "not exist"}`
     );
+
     if (token == null) {
       let uri = null;
       let imageUri = null;
@@ -494,7 +495,7 @@ async function saveSell(ctx: Context, sellsData: SellData[]) {
 
   for (const sellData of sellsData) {
     tokensIds.add(
-      `${collectionTokenId(sellData.nftContractAddress, sellData.tokenId)}`
+      collectionTokenId(sellData.nftContractAddress, sellData.tokenId)
     );
     ownersIds.add(sellData.from);
     // ownersIds.add(sellData.to);
@@ -551,7 +552,7 @@ async function saveBuy(ctx: Context, buysData: BuyData[]) {
 
   for (const buyData of buysData) {
     tokensIds.add(
-      `${collectionTokenId(buyData.nftContractAddress, buyData.tokenId)}`
+      collectionTokenId(buyData.nftContractAddress, buyData.tokenId)
     );
     ownersIds.add(buyData.from);
     ownersIds.add(buyData.to);
