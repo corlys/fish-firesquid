@@ -10,11 +10,7 @@ import { fishMarketplaceContract } from "./helper/FishMarketplace";
 import { ticketPassAContract } from "./helper/TicketPassA";
 import { Contract } from "./model";
 
-// export const CHAIN_NODE = "wss://astar.public.blastapi.io";
-export const CHAIN_NODE =
-  "wss://astar.api.onfinality.io/ws?apikey=70f02ff7-58b9-4d16-818c-2bf302230f7d";
-// export const CHAIN_NODE =
-//   "wss://rpc.pinknode.io/moonriver/0cac53c9-2bc5-440f-9f3b-9e2307c46d60";
+export const CHAIN_NODE = process.env.PINKNODE_GRPC_ENDPOINT
 
 interface ContractInfo {
   ethersContract: ethers.Contract;
