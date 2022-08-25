@@ -38,4 +38,7 @@ export class Token {
 
   @Column_("bool", {nullable: true})
   isListed!: boolean | undefined | null
+
+  @Column_("text", {nullable: true})
+  ticketId!: string | undefined | null
 }

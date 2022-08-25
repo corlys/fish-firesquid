@@ -8,6 +8,7 @@ type Token @entity {
   imageUri: String
   tokenId: Int!
   isListed: Boolean
+  ticketId: String
 }
 
 type Owner @entity {

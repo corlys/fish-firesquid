@@ -41,6 +41,7 @@ export type TicketMintData = {
   startTokenID: number;
   quantity: number;
   value: bigint;
+  contractAddress: string
 }
 
 export type DevTicketMintData = {
@@ -48,6 +49,7 @@ export type DevTicketMintData = {
   startTokenID: number;
   to: string;
   quantity: number;
+  contractAddress: string
 }
 
 export interface ITokenURI {
@@ -55,4 +57,11 @@ export interface ITokenURI {
   image_alt: string;
   description: string;
   name: string;
+}
+
+export interface IMetaData {
+  id: string;
+  image: string;
+  metadata: string;
+  file: string
 }
