@@ -15,7 +15,7 @@ import {
   getContractEntity,
   contractMapping,
 } from "./contract";
-import { TransferData, ITokenURI, TicketMintData, ITokenPayload, IOffchainPayload, INewUriData } from "./types"
+import { TransferData, ITokenURI, TicketMintData, ITokenPayload, IOffchainPayload, INewUriData, IMetaData } from "./types"
 import { handleActivity  } from "./operator"
 import { fishContract } from "./helper/Fish";
 import { ticketPassAContract } from "./helper/TicketPassA";
@@ -327,6 +327,8 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
     token.isListed = false;
     token.owner = to;
 
+    ctx.log.info(`${token.id} - ${token.uri} - ${token.imageUri}`)
+
     // incase uri fetching fail
     if (!token.uri || !token.imageUri) {
       token.uri = await handleURI(ctx, blockHeight.height, transferData.contractAddress, transferData.token)
@@ -409,27 +411,42 @@ async function saveTicketPass(ctx: Context, mintsData: TicketMintData[]) {
       const token = tokens.get(collectionTokenId(contractAddress, tokenId.toString()))
 
       if (token != null) {
-        tokenPayloads.push({
-          token_id: token.tokenId,
-          wallet_id: to
-        })
+
+        try {
+          ctx.log.info(`Hitting offhcain api with token_id ${token.tokenId}`)
+          const hitAPI = await axios.post<IMetaData>("https://us-central1-cosmo-customize.cloudfunctions.net/app/api/generateBraceletMetadata", { token_id: token.tokenId }) 
+          const { id, image, file } = hitAPI.data
+          ctx.log.info(`${id} ${image} ${file}`)
+          token.imageUri = image
+          token.uri = file
+          token.ticketId = id
+          tokens.set(token.id, token)
+        } catch (error: any) {
+          ctx.log.error(error)
+        }
+
+        // tokenPayloads.push({
+        //   token_id: token.tokenId,
+        //   wallet_id: to
+        // })
+
       }
     }
-    try {
-      const result = await axios.post<IOffchainPayload>("https://us-central1-cosmo-customize.cloudfunctions.net/app/api/generateCardMetadata", { tokens: tokenPayloads })    
-      if (result.data?.tokens && result.data?.tokens.length >= 0) {
-        for (const offchainToken of result.data.tokens) {
-          const token = tokens.get(collectionTokenId(contractAddress, offchainToken.id.toString()))
+    // try {
+    //   const result = await axios.post<IOffchainPayload>("https://us-central1-cosmo-customize.cloudfunctions.net/app/api/generateBraceletMetadata", { tokens: tokenPayloads })    
+    //   if (result.data?.tokens && result.data?.tokens.length >= 0) {
+    //     for (const offchainToken of result.data.tokens) {
+    //       const token = tokens.get(collectionTokenId(contractAddress, offchainToken.id.toString()))
 
-          if (token != null) {
-            token.ticketId = offchainToken.id
-            tokens.set(token.id, token)
-          }
-        }
-      } 
-    } catch (error: any) {
-      ctx.log.error(error?.message)
-    }
+    //       if (token != null) {
+    //         token.ticketId = offchainToken.id
+    //         tokens.set(token.id, token)
+    //       }
+    //     }
+    //   } 
+    // } catch (error: any) {
+    //   ctx.log.error(error?.message)
+    // }
 
     await ctx.store.save([...tokens.values()])
   }
