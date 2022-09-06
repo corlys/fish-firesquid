@@ -65,3 +65,17 @@ export interface IMetaData {
   metadata: string;
   file: string
 }
+
+export interface IOffchainPayload {
+  tokens: IMetaData[]
+}
+
+export interface ITokenPayload {
+  token_id: number,
+  wallet_id: string,
+}
+
+export interface INewUriData {
+  newUri: string,
+  block: number
+}

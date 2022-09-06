@@ -8,21 +8,19 @@ import {
   SubstrateBatchProcessor,
   SubstrateBlock,
 } from "@subsquid/substrate-processor";
-import { In } from "typeorm";
+import { In, IsNull, Not } from "typeorm";
 import axios from "axios";
 import {
   CHAIN_NODE,
   getContractEntity,
   contractMapping,
 } from "./contract";
-import { TransferData, BuyData, SellData, ITokenURI, TicketMintData, DevTicketMintData, IMetaData } from "./types"
+import { TransferData, ITokenURI, TicketMintData, ITokenPayload, IOffchainPayload, INewUriData } from "./types"
 import { handleActivity  } from "./operator"
 import { fishContract } from "./helper/Fish";
-import { fishMarketplaceContract } from "./helper/FishMarketplace";
 import { ticketPassAContract } from "./helper/TicketPassA";
 import { Owner, Token, Transfer, Activity, ActivityType } from "./model";
 import * as erc721 from "./abi/erc721";
-import * as fishMarketplace from "./abi/fishMarketplace";
 import * as nftFish from "./abi/nftFish";
 import * as ticketPassA from "./abi/ticketPassA"
 import { ethers } from "ethers";
@@ -41,8 +39,8 @@ const processor = new SubstrateBatchProcessor()
     filter: [
       [
         ticketPassA.events["Transfer(address,address,uint256)"].topic,
-        ticketPassA.events["DevMintEvent(uint256,address,uint256)"].topic,
-        ticketPassA.events["MintEvent(uint256,address,uint256,uint256)"].topic
+        ticketPassA.events["MintEvent(uint256,address,uint256,uint256)"].topic,
+        ticketPassA.events["SetNewURI(string)"].topic
       ],
     ],
   });
@@ -52,103 +50,29 @@ type Context = BatchContext<Store, Item>;
 
 processor.run(database, async (ctx) => {
   const transfersData: TransferData[] = [];
-  const sellsData: SellData[] = [];
-  const buysData: BuyData[] = [];
   const TicketMintsData: TicketMintData[] = [];
-  const DevTicketMintsData: DevTicketMintData[] = [];
+  const SetNewUriData: INewUriData[] = []
   // new eventData
   for (const block of ctx.blocks) {
     for (const item of block.items) {
       if (item.name === "EVM.Log") {
-        // ctx.log.info(
-        //   `=======================${item.event.args.address}=========================`
-        // );
-        if (item.event.args.address === fishMarketplaceContract.address) {
-          // ctx.log.info(
-          //   "==============THERE IS AN EVENT FROM THE MARKETPLACE================"
-          // );
-          const topics = item.event.args.topics;
-          if (
-            topics[0] ===
-            fishMarketplace.events["SellEvent(address,uint256,uint256,address)"]
-              .topic
-          ) {
-            const sell = handleSell(block.header, item.event);
-            sellsData.push(sell);
-          } else if (
-            topics[0] ===
-            fishMarketplace.events[
-              "BuyEvent(address,address,uint256,uint256,uint256,address)"
-            ].topic
-          ) {
-            const buy = handleBuy(block.header, item.event);
-            buysData.push(buy);
-          }
-
-          if (transfersData.length !== 0) {
-            // kalau ada transfer yang udah masuk, urus dulu transfer nya
-            await saveTransfers(ctx, transfersData);
-            while (transfersData.length !== 0) {
-              transfersData.pop();
-            }
-          }
+        const topics: string[] = item.event.args.topics;
+        
+        if (topics[0] === erc721.events["Transfer(address,address,uint256)"].topic) {
+          ctx.log.info(`${item.event.args.address} ${block.header.height}`)
+          const transfer = handleTransfer(block.header, item.event);
+          if (transfer) transfersData.push(transfer);
         }
 
-        if (item.event.args.address === ticketPassAContract.address) {
-          // ctx.log.info(
-          //   "==============THERE IS AN EVENT FROM TICKETPASS================"
-          // );
-          const topics = item.event.args.topics;
-          if (topics[0] === ticketPassA.events["Transfer(address,address,uint256)"].topic) {
-            const transfer = handleTransfer(block.header, item.event);
-            transfersData.push(transfer);
-          }
+        if (topics[0] === ticketPassA.events["MintEvent(uint256,address,uint256,uint256)"].topic) {
+          ctx.log.info(`${item.event.args.address} ${block.header.height}`)
+          const mint = handleTicketPassMint(block.header, item.event);
+          TicketMintsData.push(mint)
+        }
 
-          if (topics[0] === ticketPassA.events["MintEvent(uint256,address,uint256,uint256)"].topic) {
-            const mint = handleTicketPassMint(block.header, item.event);
-            TicketMintsData.push(mint)
-
-            if (transfersData.length !== 0) {
-              // kalau ada transfer yang udah masuk, urus dulu transfer nya
-              await saveTransfers(ctx, transfersData);
-              while (transfersData.length !== 0) {
-                transfersData.pop();
-              }
-            }
-          }
-
-          if (topics[0] === ticketPassA.events["DevMintEvent(uint256,address,uint256)"].topic) {
-            const devMint = handleTicketPassDevMint(block.header, item.event);
-            DevTicketMintsData.push(devMint)
-
-            if (transfersData.length !== 0) {
-              // kalau ada transfer yang udah masuk, urus dulu transfer nya
-              await saveTransfers(ctx, transfersData);
-              while (transfersData.length !== 0) {
-                transfersData.pop();
-              }
-            }
-          }
-
-          if (sellsData.length !== 0) {
-            // kalau ada transfer, sell event nya di handle dulu
-            await saveSell(ctx, sellsData);
-            while (sellsData.length !== 0) {
-              sellsData.pop();
-            }
-          }
-
-          if (buysData.length !== 0) {
-            // kalau ada transfer, buy event nya di itu muncul duluan jadi di handle duluan,
-            // transferEvent nya itu lebih duluan daripada buyEvent. Jadi ada dua kemungkinan
-            // transfer nya buy dihandle ketika event marketplace buy ketangkep. abis itu
-            // buy event nya di handle ketika ada transfer yang berikutnya atau ketika udah
-            // last round save
-            await saveBuy(ctx, buysData);
-            while (buysData.length !== 0) {
-              buysData.pop();
-            }
-          }
+        if(topics[0] === ticketPassA.events["SetNewURI(string)"].topic) {
+          const newUri = handleNewUri(block.header, item.event);
+          SetNewUriData.push(newUri);
         }
       }
     }
@@ -156,11 +80,25 @@ processor.run(database, async (ctx) => {
 
   // last round save
   await saveTransfers(ctx, transfersData);
-  await saveSell(ctx, sellsData);
-  await saveBuy(ctx, buysData);
   await saveTicketPass(ctx, TicketMintsData);
-  await saveDevTicketPass(ctx, DevTicketMintsData);
+  await saveNewUri(ctx, SetNewUriData)
+  await handleNullImage(ctx);
+  ctx.log.info(`Round Done`)
 });
+
+function handleNewUri (
+  block: SubstrateBlock,
+  event: EvmLogEvent
+): INewUriData {
+  const { newURI } = ticketPassA.events[
+    "SetNewURI(string)"
+  ].decode(event.args);
+
+  return {
+    newUri: newURI,
+    block: block.height
+  };
+}
 
 function handleTransfer(
   block: SubstrateBlock,
@@ -199,49 +137,6 @@ function handleTransfer(
   return transfer;
 }
 
-function handleSell(block: SubstrateBlock, event: EvmLogEvent): SellData {
-  const { seller, tokenId, price, NFTAddress } = fishMarketplace.events[
-    "SellEvent(address,uint256,uint256,address)"
-  ].decode(event.args);
-
-  const sell: SellData = {
-    id: event.id,
-    tokenId: tokenId.toString(),
-    from: seller,
-    price: price.toBigInt(),
-    nftContractAddress: NFTAddress.toLowerCase(),
-    timestamp: BigInt(block.timestamp),
-    block: block.height,
-    transactionHash: event.evmTxHash,
-    contractAddress: event.args.address,
-  };
-
-  return sell;
-}
-
-function handleBuy(block: SubstrateBlock, event: EvmLogEvent): BuyData {
-  const { NFTAddress, buyer, tokenId, seller, buyTime, price } =
-    fishMarketplace.events[
-      "BuyEvent(address,address,uint256,uint256,uint256,address)"
-    ].decode(event.args);
-
-  const buy: BuyData = {
-    id: event.id,
-    tokenId: tokenId.toString(),
-    from: seller,
-    to: buyer,
-    buyTime: buyTime.toBigInt(),
-    nftContractAddress: NFTAddress.toLowerCase(),
-    price: price.toBigInt(),
-    timestamp: BigInt(block.timestamp),
-    block: block.height,
-    transactionHash: event.evmTxHash,
-    contractAddress: event.args.address,
-  };
-
-  return buy;
-}
-
 function handleTicketPassMint(block: SubstrateBlock, event: EvmLogEvent): TicketMintData {
   const {startTokenID, quantity, to, value } = 
     ticketPassA.events["MintEvent(uint256,address,uint256,uint256)"].decode(event.args)
@@ -258,26 +153,80 @@ function handleTicketPassMint(block: SubstrateBlock, event: EvmLogEvent): Ticket
   return data;
 }
 
-function handleTicketPassDevMint(block: SubstrateBlock, event: EvmLogEvent): DevTicketMintData {
-  const {startTokenID, quantity, to } = 
-    ticketPassA.events["DevMintEvent(uint256,address,uint256)"].decode(event.args)
-
-  const data: DevTicketMintData = {
-    id: event.id,
-    quantity: quantity.toNumber(),
-    startTokenID: startTokenID.toNumber(),
-    to,
-    contractAddress: event.args.address
-  } 
-
-  return data;
-}
-
 const collectionTokenId = (address: string, tokenId: string) => {
   return `${
     contractMapping.get(address)?.contractModel.symbol || ""
   }-${tokenId}`;
 };
+
+async function handleURI (ctx: Context, height: number, contractAddress: string, tokenId: string): Promise<string> {
+  try {
+    // hardcode the block height to recent block until know how to get the highest block
+    const hardCodedBlockHeight = 1789333;
+    const tokenContract = new erc721.Contract(ctx, { height: hardCodedBlockHeight > height ? hardCodedBlockHeight : height }, contractAddress)
+    return await tokenContract.tokenURI(ethers.BigNumber.from(tokenId)) 
+  } catch (error: any) {
+    ctx.log.error(`Error handling URI : ${error}`)
+    return ""
+  }
+}
+
+async function handleImage(tokenURI: string, ctx: Context) {
+  try {
+    // check if the URI is centralized of decentralizer
+    // if its decentralized
+    return null //for now since thelinks are not ready yet
+    if (tokenURI.length === 0) return null
+    if (tokenURI.includes("ipfs://")) {
+      try {
+        const { data } = await axios.get<ITokenURI>(tokenURI.replace("ipfs://", "https://nftstorage.link/ipfs/"))
+
+        if (data?.image) return data.image
+        if (data?.image_alt) return data.image_alt
+        ctx.log.error(`Data does not exist: ${data} ${tokenURI.replace("ipfs://", "https://nftstorage.link/ipfs/")}`)
+        return null
+      } catch (error) {
+        ctx.log.error(`Fetching Image Error: ${tokenURI.replace("ipfs://", "https://nftstorage.link/ipfs/")} - ${error}`)
+        return null
+      }
+
+    } else {
+      try {
+        const { data } = await axios.get<ITokenURI>(tokenURI.replace("https://", "http://"))
+  
+        if (data?.image) return data.image
+        if (data?.image_alt) return data.image_alt
+        ctx.log.error(`Data does not exist: ${data} ${tokenURI}`)
+        return null  
+      } catch (error) {
+        ctx.log.error(`Fetching Image Error: ${tokenURI} - ${error}`)
+        return null
+      }
+    }
+  } catch (error: any) {
+    ctx.log.error(`error handleImage: ${error}`)
+    return null
+  }
+}
+
+async function handleNullImage (ctx: Context) {
+  let tokens: Map<string, Token> = new Map(
+    (await ctx.store.find(Token, { where: { imageUri : IsNull() } })).map((token) => [
+      token.id,
+      token,
+    ])
+  );
+
+  for (const token of tokens) {
+    const _token = token[1]
+    if (_token.uri) {
+      _token.imageUri = await handleImage(_token.uri, ctx)
+      tokens.set(_token.id, _token)
+    }
+  }
+
+  await ctx.store.save([...tokens.values()])
+}
 
 async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
   // ctx.log.info("===================BEGIN SAVETRANSFER================");
@@ -315,7 +264,6 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
     // Create contract instance
 
     const blockHeight = { height: transferData.block }
-    const tokenContract = new erc721.Contract(ctx, blockHeight, transferData.contractAddress)
 
     let from = owners.get(transferData.from);
     if (from == null) {
@@ -341,30 +289,8 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
     // );
 
     if (token == null) {
-      let uri = null;
-      let imageUri = null;
-      try {
-        uri = await tokenContract.tokenURI(ethers.BigNumber.from(transferData.token))
-        // ctx.log.info(`uri initial = ${uri}`)
-        if (uri.includes("https://")) {
-        } else {
-          // if (uri.includes("ipfs://")) {
-          //   const get = await axios.get<ITokenURI>(
-          //     uri.replace("ipfs://", "https://nftstorage.link/ipfs/")
-          //   );
-          //   imageUri = get.data.image;
-          // }
-          const get = await axios.get<ITokenURI>(
-            uri
-          );
-          if (get.data?.image_alt) {
-            imageUri = get.data.image_alt
-          }
-          if (get.data.image) {
-            imageUri = get.data.image
-          }
-        }
-      } catch (error) {}
+      let uri = await handleURI(ctx, blockHeight.height, transferData.contractAddress, transferData.token);
+      let imageUri = await handleImage(uri, ctx);
       token = new Token({
         id: `${collectionTokenId(
           transferData.contractAddress,
@@ -403,32 +329,8 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
 
     // incase uri fetching fail
     if (!token.uri || !token.imageUri) {
-      try {
-        let uri = null;
-        let imageUri = null;
-        uri = await tokenContract.tokenURI(ethers.BigNumber.from(transferData.token))
-        // ctx.log.info(`uri if still null before = ${uri}`)
-        if (uri.includes("https://")) {
-        } else {
-          token.uri = uri;
-          // if (uri.includes("ipfs://")) {
-          //   const get = await axios.get<ITokenURI>(
-          //     uri.replace("ipfs://", "https://nftstorage.link/ipfs/")
-          //   );
-          //   imageUri = get.data.image;
-          // }
-          const get = await axios.get<ITokenURI>(
-            uri
-          );
-          if (get.data?.image_alt) {
-            imageUri = get.data.image_alt
-          }
-          if (get.data.image) {
-            imageUri = get.data.image
-          }
-          token.imageUri = imageUri
-        }
-      } catch (error) {}
+      token.uri = await handleURI(ctx, blockHeight.height, transferData.contractAddress, transferData.token)
+      token.imageUri = await handleImage(token.uri, ctx)
     }
 
     const { id, block, transactionHash, timestamp } = transferData;
@@ -488,133 +390,14 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
   // ctx.log.info("===================END SAVETRANSFER================");
 }
 
-async function saveSell(ctx: Context, sellsData: SellData[]) {
-  // ctx.log.info("===================BEGIN SAVESELL================");
-  const tokensIds: Set<string> = new Set();
-  const ownersIds: Set<string> = new Set();
-
-  for (const sellData of sellsData) {
-    tokensIds.add(
-      collectionTokenId(sellData.nftContractAddress, sellData.tokenId)
-    );
-    ownersIds.add(sellData.from);
-    // ownersIds.add(sellData.to);
-  }
-
-  const activities: Set<Activity> = new Set();
-
-  const tokens: Map<string, Token> = new Map(
-    (await ctx.store.findBy(Token, { id: In([...tokensIds]) })).map((token) => [
-      token.id,
-      token,
-    ])
-  );
-
-  const owners: Map<string, Owner> = new Map(
-    (await ctx.store.findBy(Owner, { id: In([...ownersIds]) })).map((owner) => [
-      owner.id,
-      owner,
-    ])
-  );
-
-  for (const sellData of sellsData) {
-    let from = owners.get(sellData.from);
-    if (from == null) {
-      from = new Owner({ id: sellData.from, balance: 0n });
-      owners.set(from.id, from);
-    }
-
-    let token = tokens.get(
-      `${collectionTokenId(sellData.nftContractAddress, sellData.tokenId)}`
-    );
-
-    if (token != null) {
-      token.owner = from;
-      token.isListed = true;
-    }
-    const to = undefined
-    const sellActivity = handleActivity(ActivityType.LISTING, sellData, token, from, to)
-
-    activities.add(sellActivity);
-  }
-
-  await ctx.store.save([...owners.values()]);
-  await ctx.store.save([...tokens.values()]);
-  await ctx.store.save([...activities]);
-
-  // ctx.log.info("===================END SAVESELLL================");
-}
-
-async function saveBuy(ctx: Context, buysData: BuyData[]) {
-  // ctx.log.info("===================BEGIN SAVEBUY================");
-  const tokensIds: Set<string> = new Set();
-  const ownersIds: Set<string> = new Set();
-
-  for (const buyData of buysData) {
-    tokensIds.add(
-      collectionTokenId(buyData.nftContractAddress, buyData.tokenId)
-    );
-    ownersIds.add(buyData.from);
-    ownersIds.add(buyData.to);
-  }
-
-  const activities: Set<Activity> = new Set();
-
-  const tokens: Map<string, Token> = new Map(
-    (await ctx.store.findBy(Token, { id: In([...tokensIds]) })).map((token) => [
-      token.id,
-      token,
-    ])
-  );
-
-  const owners: Map<string, Owner> = new Map(
-    (await ctx.store.findBy(Owner, { id: In([...ownersIds]) })).map((owner) => [
-      owner.id,
-      owner,
-    ])
-  );
-
-  for (const buyData of buysData) {
-    let from = owners.get(buyData.from);
-    if (from == null) {
-      from = new Owner({ id: buyData.from, balance: 0n });
-      owners.set(from.id, from);
-    }
-
-    let to = owners.get(buyData.to);
-    if (to == null) {
-      to = new Owner({ id: buyData.to, balance: 0n });
-      owners.set(to.id, to);
-    }
-
-    let token = tokens.get(
-      `${collectionTokenId(buyData.nftContractAddress, buyData.tokenId)}`
-    );
-
-    if (token != null) {
-      token.owner = to;
-      token.isListed = false;
-    }
-
-    const buyActivity = handleActivity(ActivityType.SOLD, buyData, token, from, to)
-
-    activities.add(buyActivity);
-  }
-
-  await ctx.store.save([...owners.values()]);
-  await ctx.store.save([...tokens.values()]);
-  await ctx.store.save([...activities]);
-
-  // ctx.log.info("===================END SAVEBUY================");
-}
-
 async function saveTicketPass(ctx: Context, mintsData: TicketMintData[]) {
   for (const mintData of mintsData) {
-    const { startTokenID, quantity, contractAddress } = mintData;
+    const { startTokenID, quantity, contractAddress, to } = mintData;
     let tokenIds: number[] = Array.from(new Array(quantity), (x, i) => i + startTokenID);
     let tokenCollectionIds = tokenIds.map((id) => (
       collectionTokenId(contractAddress, id.toString())
     ))
+    let tokenPayloads: ITokenPayload[] = []
     const tokens: Map<string, Token> = new Map(
       (await ctx.store.findBy(Token, { id: In([...tokenCollectionIds]) })).map((token) => [
         token.id,
@@ -626,34 +409,49 @@ async function saveTicketPass(ctx: Context, mintsData: TicketMintData[]) {
       const token = tokens.get(collectionTokenId(contractAddress, tokenId.toString()))
 
       if (token != null) {
-        try {
-          const result = await axios.post<IMetaData>("https://us-central1-cosmo-customize.cloudfunctions.net/app/api/generateCardMetadata", { token_id: tokenId })
-          if (result.data.id !== null) {
-            token.ticketId = result.data.id
-            tokens.set(token.id, token);
-          }
-        } catch (error: any) {
-          ctx.log.error(error?.message)
-        }
+        tokenPayloads.push({
+          token_id: token.tokenId,
+          wallet_id: to
+        })
       }
     }
-    await ctx.store.save([...tokens.values()]);
+    try {
+      const result = await axios.post<IOffchainPayload>("https://us-central1-cosmo-customize.cloudfunctions.net/app/api/generateCardMetadata", { tokens: tokenPayloads })    
+      if (result.data?.tokens && result.data?.tokens.length >= 0) {
+        for (const offchainToken of result.data.tokens) {
+          const token = tokens.get(collectionTokenId(contractAddress, offchainToken.id.toString()))
+
+          if (token != null) {
+            token.ticketId = offchainToken.id
+            tokens.set(token.id, token)
+          }
+        }
+      } 
+    } catch (error: any) {
+      ctx.log.error(error?.message)
+    }
+
+    await ctx.store.save([...tokens.values()])
   }
 }
 
-async function saveDevTicketPass(ctx: Context, devMintsData: DevTicketMintData[]) {
-  for (const mintData of devMintsData) {
-    const { startTokenID, quantity } = mintData;
-    let tokenIds: number[] = Array.from(new Array(quantity), (x, i) => i + startTokenID);
-    for (const tokenId of tokenIds) {
-      // Shoot here
-      // ctx.log.info(`tokenId : ${tokenId}`)
-      try {
-        const result = await axios.post("https://us-central1-cosmo-customize.cloudfunctions.net/app/api/generateCardMetadata", { token_id: tokenId })
-        ctx.log.info(JSON.stringify(result.data))
-      } catch (error:any) {
-        ctx.log.error(error?.message)
-      }
+async function saveNewUri (ctx: Context, newUriData: INewUriData[]) {
+
+  let tokens: Map<string, Token> = new Map(
+    (await ctx.store.find(Token, { where: { id: Not(IsNull()) } })).map((token) => [
+      token.id,
+      token,
+    ])
+  );
+
+  for (const data of newUriData) {
+    for (const token of tokens) {
+      const _token = token[1]
+      _token.uri = `${data.newUri}${_token.tokenId}.json`;
+      _token.imageUri = await handleImage(_token.uri, ctx);
+      tokens.set(_token.id, _token);
     }
   }
+
+  await ctx.store.save([...tokens.values()])
 }

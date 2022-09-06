@@ -9,11 +9,11 @@ export type ApprovalForAll0Event = ([owner: string, operator: string, approved: 
 
 export type ConsecutiveTransfer0Event = ([fromTokenId: ethers.BigNumber, toTokenId: ethers.BigNumber, from: string, to: string] & {fromTokenId: ethers.BigNumber, toTokenId: ethers.BigNumber, from: string, to: string})
 
-export type DevMintEvent0Event = ([startTokenID: ethers.BigNumber, to: string, quantity: ethers.BigNumber] & {startTokenID: ethers.BigNumber, to: string, quantity: ethers.BigNumber})
-
 export type MintEvent0Event = ([startTokenID: ethers.BigNumber, to: string, quantity: ethers.BigNumber, value: ethers.BigNumber] & {startTokenID: ethers.BigNumber, to: string, quantity: ethers.BigNumber, value: ethers.BigNumber})
 
 export type OwnershipTransferred0Event = ([previousOwner: string, newOwner: string] & {previousOwner: string, newOwner: string})
+
+export type SetNewURI0Event = ([newURI: string] & {newURI: string})
 
 export type Transfer0Event = ([from: string, to: string, tokenId: ethers.BigNumber] & {from: string, to: string, tokenId: ethers.BigNumber})
 
@@ -52,13 +52,6 @@ export const events = {
     }
   }
   ,
-  "DevMintEvent(uint256,address,uint256)": {
-    topic: abi.getEventTopic("DevMintEvent(uint256,address,uint256)"),
-    decode(data: EvmEvent): DevMintEvent0Event {
-      return decodeEvent("DevMintEvent(uint256,address,uint256)", data)
-    }
-  }
-  ,
   "MintEvent(uint256,address,uint256,uint256)": {
     topic: abi.getEventTopic("MintEvent(uint256,address,uint256,uint256)"),
     decode(data: EvmEvent): MintEvent0Event {
@@ -70,6 +63,13 @@ export const events = {
     topic: abi.getEventTopic("OwnershipTransferred(address,address)"),
     decode(data: EvmEvent): OwnershipTransferred0Event {
       return decodeEvent("OwnershipTransferred(address,address)", data)
+    }
+  }
+  ,
+  "SetNewURI(string)": {
+    topic: abi.getEventTopic("SetNewURI(string)"),
+    decode(data: EvmEvent): SetNewURI0Event {
+      return decodeEvent("SetNewURI(string)", data)
     }
   }
   ,
@@ -121,10 +121,6 @@ export class Contract  {
     }
   }
 
-  async DEV_MINT_TOTAL_SUPPLY(): Promise<ethers.BigNumber> {
-    return this.call("DEV_MINT_TOTAL_SUPPLY", [])
-  }
-
   async MINT_HASHSTRUCT(): Promise<string> {
     return this.call("MINT_HASHSTRUCT", [])
   }
@@ -139,6 +135,10 @@ export class Contract  {
 
   async TOTAL_SUPPLY(): Promise<ethers.BigNumber> {
     return this.call("TOTAL_SUPPLY", [])
+  }
+
+  async TreasuryWallet(): Promise<string> {
+    return this.call("TreasuryWallet", [])
   }
 
   async balanceOf(owner: string): Promise<ethers.BigNumber> {
@@ -173,8 +173,8 @@ export class Contract  {
     return this.call("stage", [])
   }
 
-  async statusAdmin(adminAddress: string): Promise<boolean> {
-    return this.call("statusAdmin", [adminAddress])
+  async statusAdmin(arg0: string): Promise<boolean> {
+    return this.call("statusAdmin", [arg0])
   }
 
   async supportsInterface(interfaceId: string): Promise<boolean> {
@@ -384,31 +384,6 @@ function getJsonAbi(): any {
           "internalType": "uint256",
           "name": "quantity",
           "type": "uint256"
-        }
-      ],
-      "name": "DevMintEvent",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "startTokenID",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "address",
-          "name": "to",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "quantity",
-          "type": "uint256"
         },
         {
           "indexed": false,
@@ -443,6 +418,19 @@ function getJsonAbi(): any {
       "anonymous": false,
       "inputs": [
         {
+          "indexed": false,
+          "internalType": "string",
+          "name": "newURI",
+          "type": "string"
+        }
+      ],
+      "name": "SetNewURI",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
           "indexed": true,
           "internalType": "address",
           "name": "from",
@@ -463,19 +451,6 @@ function getJsonAbi(): any {
       ],
       "name": "Transfer",
       "type": "event"
-    },
-    {
-      "inputs": [],
-      "name": "DEV_MINT_TOTAL_SUPPLY",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
     },
     {
       "inputs": [],
@@ -530,6 +505,19 @@ function getJsonAbi(): any {
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "TreasuryWallet",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "address",
@@ -577,19 +565,6 @@ function getJsonAbi(): any {
         }
       ],
       "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "quantity",
-          "type": "uint256"
-        }
-      ],
-      "name": "devMint",
-      "outputs": [],
-      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -696,6 +671,11 @@ function getJsonAbi(): any {
           "internalType": "bytes",
           "name": "sign",
           "type": "bytes"
+        },
+        {
+          "internalType": "bytes32[]",
+          "name": "_merkleProof",
+          "type": "bytes32[]"
         }
       ],
       "name": "privateSaleMint",
@@ -823,6 +803,19 @@ function getJsonAbi(): any {
           "type": "address"
         }
       ],
+      "name": "setTreassuryWallet",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newAddress",
+          "type": "address"
+        }
+      ],
       "name": "setWhitelistAddress",
       "outputs": [],
       "stateMutability": "nonpayable",
@@ -845,7 +838,7 @@ function getJsonAbi(): any {
       "inputs": [
         {
           "internalType": "address",
-          "name": "adminAddress",
+          "name": "",
           "type": "address"
         }
       ],
@@ -890,19 +883,6 @@ function getJsonAbi(): any {
         }
       ],
       "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "newAdmin",
-          "type": "address"
-        }
-      ],
-      "name": "toggleAdmin",
-      "outputs": [],
-      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
