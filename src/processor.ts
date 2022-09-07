@@ -302,7 +302,10 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           transferData.contractAddress
         ),
         imageUri,
-        tokenId: parseInt(transferData.token)
+        tokenId: parseInt(transferData.token),
+        //waiting for fix from squid-devs
+        owner: to,
+        isListed: false
       });
       tokens.set(token.id, token);
 
@@ -322,10 +325,16 @@ async function saveTransfers(ctx: Context, transfersData: TransferData[]) {
           activities.add(activityEntity);
         }
       }
+    } else {
+      //waiting for fix from squid-devs
+      token.isListed = false;
+      token.owner = to;
+      token.contract = await getContractEntity(
+        ctx.store,
+        transferData.contractAddress
+      )
+      tokens.set(token.id, token);
     }
-
-    token.isListed = false;
-    token.owner = to;
 
     ctx.log.info(`${token.id} - ${token.uri} - ${token.imageUri}`)
 
